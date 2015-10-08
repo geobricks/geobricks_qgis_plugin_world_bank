@@ -1,20 +1,4 @@
 # -*- coding: utf-8 -*-
-import os
-import re
-import urllib2
-import simplejson
-from shutil import copyfile
-import fiona
-from fiona.crs import from_epsg
-from shapely.geometry import mapping, shape
-from PyQt4.QtGui import *
-from PyQt4 import QtCore, QtGui
-from qgis.core import QgsStyleV2, QgsVectorGradientColorRampV2, QgsVectorLayer, QgsMapLayerRegistry, QgsGraduatedSymbolRendererV2, QgsSymbolV2,  QgsRendererRangeV2
-
-# from geobricks_mapclassify.core.mapclassify import MapClassify
-
-
-
 """
 /***************************************************************************
  GeobricksQgisPluginWorldBank
@@ -36,9 +20,20 @@ from qgis.core import QgsStyleV2, QgsVectorGradientColorRampV2, QgsVectorLayer, 
  *                                                                         *
  ***************************************************************************/
 """
+import os
+import re
+import urllib2
+import simplejson
+from shutil import copyfile
+import fiona
+from fiona.crs import from_epsg
+from shapely.geometry import mapping, shape
+from qgis.core import QgsStyleV2, QgsVectorGradientColorRampV2, QgsVectorLayer, QgsMapLayerRegistry, QgsGraduatedSymbolRendererV2, QgsSymbolV2,  QgsRendererRangeV2
+
+
 from PyQt4.QtCore import QSettings, QTranslator, qVersion, QCoreApplication
 from PyQt4.QtGui import QAction, QIcon
-from PyQt4.QtGui import *
+
 # Initialize Qt resources from file resources.py
 import resources
 # Import the code for the dialog
@@ -282,26 +277,31 @@ class GeobricksQgisPluginWorldBank:
 
                     # Read the original Shapefile
                     print "Writing: " + output_file
-                    with fiona.collection(os.path.join(input_base_path, "baselayer_3857.shp"), 'r') as input:
+                    with fiona.collection(os.path.join(input_base_path, "baselayer_3857.shp"), 'r') as source:
                         # The output has the same schema
-                        schema = input.schema.copy()
+                        schema = source.schema.copy()
                         schema['properties']['value'] = 'float'
 
                         # write a new shapefile
                         # TODO: dinamic projection
-                        with fiona.collection(output_file, 'w', crs=from_epsg(3857), driver='ESRI Shapefile', schema=schema) as output:
-                            for elem in input:
+                        with fiona.collection(output_file, 'w', 
+                            crs = source.crs, 
+                            driver=source.driver, 
+                            schema=schema) as output:
+                            for f in source:
                                 for d in data[1]:
                                     code = d['country']['id']
                                     value = d['value']
                                     #print code, value
                                     # print elem['properties']
                                     #print elem['properties']['ISO2']
-                                    if code == elem['properties']['ISO2']:
+                                    if code == f['properties']['ISO2']:
                                         # print value
                                         if value:
-                                            elem['properties']['value'] = value
-                                            output.write({'properties': elem['properties'],'geometry': mapping(shape(elem['geometry']))})
+                                            f['properties']['value'] = value
+                                            output.write(f)
+
+                                            # output.write({'properties': f['properties'],'geometry': mapping(shape(f['geometry']))})
 
                     try:
 
@@ -396,6 +396,6 @@ def applyGraduatedSymbologyStandardMode( layer, field, classes, mode):
     print colorRamp
     #colorRamp = QgsVectorGradientColorRampV2.create({'color1':'255,0,0,255', 'color2':'0,0,255,255','stops':'0.25;255,255,0,255:0.50;0,255,0,255:0.75;0,255,255,255'})
     #print colorRamp
-    renderer = QgsGraduatedSymbolRendererV2.createRenderer( layer, field, classes, mode, symbol, colorRamp )
-    layer.setRendererV2( renderer )
+    renderer = QgsGraduatedSymbolRendererV2.createRenderer(layer, field, classes, mode, symbol, colorRamp)
+    layer.setRendererV2(renderer)
 
