@@ -3,9 +3,20 @@ import os
 import re
 import urllib2
 import simplejson
+from shutil import copyfile
 import fiona
 from fiona.crs import from_epsg
 from shapely.geometry import mapping, shape
+from PyQt4.QtGui import *
+from qgis.core import (QgsVectorLayer,
+                        QgsMapLayerRegistry,
+                        QgsGraduatedSymbolRendererV2,
+                        QgsSymbolV2,
+                        QgsRendererRangeV2)
+
+# from geobricks_mapclassify.core.mapclassify import MapClassify
+
+
 
 """
 /***************************************************************************
@@ -188,11 +199,7 @@ class GeobricksQgisPluginWorldBank:
 
 
     def run(self):
-
-        print os.path.join(os.path.dirname(os.path.realpath(__file__)), "resources", "baselayer_3857.shp")
-
-        # how to style as default the map?
-
+        # TODO: how to style as default the map?
 
         # req = urllib2.Request('http://fenixapps2.fao.org/api/v1.0/en/codes/areagroup/qc')
         # response = urllib2.urlopen(req)
@@ -218,7 +225,6 @@ class GeobricksQgisPluginWorldBank:
             indicators[d['name']] = d['id']
             values.append(d['name'])
 
-        print values
         self.dlg.cbIndicator.addItems(values)
 
         values = []
@@ -239,14 +245,16 @@ class GeobricksQgisPluginWorldBank:
         if result:
             # Do something useful here - delete the line containing pass and
             # substitute with your code.
-            print "Done"
+            print "Processing layers"
 
             indicator_name = self.dlg.cbIndicator.currentText()
             indicator = indicators[indicator_name]
-            print indicator
+            #print indicator
 
-            fromYear = int(self.dlg.cbFromYear.currentText())
-            toYear = int(self.dlg.cbToYear.currentText()) - 1
+            fromYear = int(self.dlg.cbFromYear.currentText())-1
+            toYear = int(self.dlg.cbToYear.currentText())
+            print toYear, fromYear
+
             for year in range(toYear, fromYear, -1):
                 year = str(year)
                 print year
@@ -254,49 +262,86 @@ class GeobricksQgisPluginWorldBank:
                 #req = urllib2.Request('http://api.worldbank.org/countries/indicators/1.0.HCount.1.25usd?per_page=100&date=2008:2008&format=json')
                 #req = urllib2.Request('http://api.worldbank.org/countries/indicators/NY.GDP.MKTP.CD?date=2013&format=json&per_page=10000')
                 #req = urllib2.Request('http://api.worldbank.org/countries/indicators/AG.LND.ARBL.ZS?date=2012&format=json&per_page=10000')
-                req = urllib2.Request('http://api.worldbank.org/countries/all/indicators/' + indicator + '?date=' + year + '&format=json&per_page=10000')
+                try:
+                    request = 'http://api.worldbank.org/countries/all/indicators/' + indicator + '?date=' + year + '&format=json&per_page=10000'
+                    print"Request: ", request
 
-                print req
+                    req = urllib2.Request(request)
+                    response = urllib2.urlopen(req)
+                    json = response.read()
+                    data = simplejson.loads(json)
+                    print "Request End"
 
-                response = urllib2.urlopen(req)
-                json = response.read()
-                data = simplejson.loads(json)
+                    # print data
+                    clean_layer_name = re.sub('\W+','_', indicator_name) + "_" + year
 
-                # print data
-                clean_layer_name = re.sub('\W+','_', indicator_name) + "_" + year
+                    output_base_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "output")
+                    if not os.path.exists(output_base_path):
+                        os.mkdir(output_base_path)
 
-                output_base_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "output")
-                if not os.path.exists(output_base_path):
-                    os.mkdir(output_base_path)
+                    output_file = os.path.join(output_base_path, clean_layer_name + ".shp")
+                    input_base_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "resources")
 
-                output_file = os.path.join(output_base_path, clean_layer_name + ".shp")
+                    # Read the original Shapefile
+                    print "Writing: " + output_file
+                    with fiona.collection(os.path.join(input_base_path, "baselayer_3857.shp"), 'r') as input:
+                        # The output has the same schema
+                        schema = input.schema.copy()
+                        schema['properties']['value'] = 'float'
+
+                        # write a new shapefile
+                        # TODO: dinamic projection
+                        with fiona.collection(output_file, 'w', crs=from_epsg(3857), driver='ESRI Shapefile', schema=schema) as output:
+                            for elem in input:
+                                for d in data[1]:
+                                    code = d['country']['id']
+                                    value = d['value']
+                                    #print code, value
+                                    # print elem['properties']
+                                    #print elem['properties']['ISO2']
+                                    if code == elem['properties']['ISO2']:
+                                        # print value
+                                        if value:
+                                            elem['properties']['value'] = value
+                                            output.write({'properties': elem['properties'],'geometry': mapping(shape(elem['geometry']))})
+
+                    try:
+
+                        # TODO: fix with fiona
+                        copyfile(os.path.join(input_base_path, 'baselayer_3857.prj'), os.path.join(output_base_path, clean_layer_name + ".prj"))
+
+                        print "Adding: " + indicator_name + ' (' + year +')'
+                        layer = self.iface.addVectorLayer(
+                            output_file,
+                            indicator_name + ' (' + year +')',
+                            "ogr")
 
 
-                # Read the original Shapefile
-                with fiona.collection(os.path.join(os.path.dirname(os.path.realpath(__file__)), "resources", "baselayer_3857.shp"), 'r') as input:
-                    # The output has the same schema
-                    schema = input.schema.copy()
-                    schema['properties']['value'] = 'float'
+                        print "Start creating style"
+                        # TODO: calculate ranges
+                        # define ranges: label, lower value, upper value, color name
+                        coffee_prices = (
+                            ('Free', 0.0, 0.0, 'green'),
+                            ('Cheap', 0.0, 1.5, 'yellow'),
+                            ('Average', 1.5, 2.5, 'orange'),
+                            ('Expensive', 2.5, 999.0, 'red'),
+                        )
 
-                    # write a new shapefile
-                    with fiona.collection(output_file, 'w', 'ESRI Shapefile', schema) as output:
-                        for elem in input:
-                            for d in data[1]:
-                                code = d['country']['id']
-                                value = d['value']
-                                #print code, value
-                                # print elem['properties']
-                                #print elem['properties']['ISO2']
-                                if code == elem['properties']['ISO2']:
-                                    # print value
-                                    if value:
-                                        elem['properties']['value'] = value
-                                        output.write({'properties': elem['properties'],'geometry': mapping(shape(elem['geometry']))})
+                        # create a category for each item in animals
+                        ranges = []
+                        for label, lower, upper, color in coffee_prices:
+                            symbol = QgsSymbolV2.defaultSymbol(layer.geometryType())
+                            symbol.setColor(QColor(color))
+                            rng = QgsRendererRangeV2(lower, upper, symbol, label)
+                            ranges.append(rng)
 
+                        # create the renderer and assign it to a layer
+                        expression = 'value' # field name
+                        renderer = QgsGraduatedSymbolRendererV2(expression, ranges)
+                        layer.setRendererV2(renderer)
 
-
-                print "Adding: " + indicator_name + ' (' + year +')'
-                layer = self.iface.addVectorLayer(
-                    output_file,
-                    indicator_name + ' (' + year +')',
-                    "ogr")
+                        print "End creating style"
+                    except Exception, e:
+                        print e
+                except Exception, e:
+                    print e
