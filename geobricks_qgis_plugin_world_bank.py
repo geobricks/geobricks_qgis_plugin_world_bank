@@ -1,4 +1,12 @@
 # -*- coding: utf-8 -*-
+import os
+import re
+import urllib2
+import simplejson
+import fiona
+from fiona.crs import from_epsg
+from shapely.geometry import mapping, shape
+
 """
 /***************************************************************************
  GeobricksQgisPluginWorldBank
@@ -180,6 +188,46 @@ class GeobricksQgisPluginWorldBank:
 
 
     def run(self):
+
+        print os.path.join(os.path.dirname(os.path.realpath(__file__)), "resources", "baselayer_3857.shp")
+
+        # how to style as default the map?
+
+
+        # req = urllib2.Request('http://fenixapps2.fao.org/api/v1.0/en/codes/areagroup/qc')
+        # response = urllib2.urlopen(req)
+        # json = response.read()
+        # data = simplejson.loads(json)
+        #
+        # values = []
+        # for d in data['data']:
+        #      values.append(d['label'])
+        #
+        # self.dlg.cbCountries.addItems(values)
+
+        req = urllib2.Request('http://api.worldbank.org/indicators?per_page=500&format=json')
+
+        response = urllib2.urlopen(req)
+        json = response.read()
+        data = simplejson.loads(json)
+
+        # TODO cache codes
+        values = []
+        indicators = {}
+        for d in data[1]:
+            indicators[d['name']] = d['id']
+            values.append(d['name'])
+
+        self.dlg.cbIndicator.addItems(values)
+
+        values = []
+        for year in range(2015, 1961, -1):
+            values.append(str(year))
+
+        self.dlg.cbYear.addItems(values)
+
+
+
         """Run method that performs all the real work"""
         # show the dialog
         self.dlg.show()
@@ -189,4 +237,60 @@ class GeobricksQgisPluginWorldBank:
         if result:
             # Do something useful here - delete the line containing pass and
             # substitute with your code.
-            pass
+            print "Done"
+
+            indicator_name = self.dlg.cbIndicator.currentText()
+            indicator = indicators[indicator_name]
+            print indicator
+
+            year = self.dlg.cbYear.currentText()
+
+            #req = urllib2.Request('http://api.worldbank.org/countries/indicators/1.0.HCount.1.25usd?per_page=100&date=2008:2008&format=json')
+            #req = urllib2.Request('http://api.worldbank.org/countries/indicators/NY.GDP.MKTP.CD?date=2013&format=json&per_page=10000')
+            #req = urllib2.Request('http://api.worldbank.org/countries/indicators/AG.LND.ARBL.ZS?date=2012&format=json&per_page=10000')
+            req = urllib2.Request('http://api.worldbank.org/countries/all/indicators/' + indicator + '?date=' + year + '&format=json&per_page=10000')
+
+            print req
+
+            response = urllib2.urlopen(req)
+            json = response.read()
+            data = simplejson.loads(json)
+
+            # print data
+            clean_layer_name = re.sub('\W+','_', indicator_name ) + "_" + year
+
+            output_base_path = os.path.dirname(os.path.realpath(__file__), "output")
+            if not os.path.exists(output_base_path):
+                os.mkdir(output_base_path)
+
+            output_file = os.path.join(output_base_path, clean_layer_name + ".shp")
+
+
+            # Read the original Shapefile
+            with fiona.collection(os.path.join(os.path.dirname(os.path.realpath(__file__)), "resources", "baselayer_3857.shp"), 'r') as input:
+                # The output has the same schema
+                schema = input.schema.copy()
+                schema['properties']['value'] = 'float'
+
+                # write a new shapefile
+                with fiona.collection(output_file, 'w', 'ESRI Shapefile', schema) as output:
+                    for elem in input:
+                        for d in data[1]:
+                            code = d['country']['id']
+                            value = d['value']
+                            #print code, value
+                            # print elem['properties']
+                            #print elem['properties']['ISO2']
+                            if code == elem['properties']['ISO2']:
+                                print value
+                                if value:
+                                    elem['properties']['value'] = value
+                                    output.write({'properties': elem['properties'],'geometry': mapping(shape(elem['geometry']))})
+
+
+
+
+            layer = self.iface.addVectorLayer(
+                output_file,
+                indicator_name + ' (' + year +')',
+                "ogr")
