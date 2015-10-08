@@ -31,6 +31,7 @@ from shapely.geometry import mapping, shape
 from qgis.core import QgsStyleV2, QgsVectorGradientColorRampV2, QgsVectorLayer, QgsMapLayerRegistry, QgsGraduatedSymbolRendererV2, QgsSymbolV2,  QgsRendererRangeV2
 
 
+from PyQt4 import QtCore
 from PyQt4.QtCore import QSettings, QTranslator, qVersion, QCoreApplication
 from PyQt4.QtGui import QAction, QIcon
 
@@ -190,6 +191,165 @@ class GeobricksQgisPluginWorldBank:
         # remove the toolbar
         del self.toolbar
 
+    def process_layers(self):
+        print "PROCESSING LAYERS..."
+
+        processed_layers = 0
+        self.dlg.progressBar.setValue(processed_layers)
+        self.dlg.progressText.setText('')
+
+        # self.dlg.progressBar.setValue(50)   
+        # print self.dlg.progressText
+
+        print "Processing layers"
+        indicator_name = self.dlg.cbIndicator.currentText()
+        indicator = self.indicators[indicator_name]
+        #print indicator
+
+        fromYear = int(self.dlg.cbFromYear.currentText())
+        toYear = int(self.dlg.cbToYear.currentText()) + 1
+        print toYear, fromYear
+
+        total = toYear - fromYear
+
+        print total
+
+        for year in range(fromYear, toYear):
+            year = str(year)
+            print year
+            self.dlg.progressText.setText('Processing: ' + year + ' '+ indicator_name)
+
+
+            #req = urllib2.Request('http://api.worldbank.org/countries/indicators/1.0.HCount.1.25usd?per_page=100&date=2008:2008&format=json')
+            #req = urllib2.Request('http://api.worldbank.org/countries/indicators/NY.GDP.MKTP.CD?date=2013&format=json&per_page=10000')
+            #req = urllib2.Request('http://api.worldbank.org/countries/indicators/AG.LND.ARBL.ZS?date=2012&format=json&per_page=10000')
+            try:
+                request = 'http://api.worldbank.org/countries/all/indicators/' + indicator + '?date=' + year + '&format=json&per_page=10000'
+                print"Request: ", request
+
+                req = urllib2.Request(request)
+                response = urllib2.urlopen(req)
+                json = response.read()
+                data = simplejson.loads(json)
+                print "Request End"
+
+                # print data
+                clean_layer_name = re.sub('\W+','_', indicator_name) + "_" + year
+
+                output_base_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "output")
+                if not os.path.exists(output_base_path):
+                    os.mkdir(output_base_path)
+
+                output_file = os.path.join(output_base_path, clean_layer_name + ".shp")
+                input_base_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "resources")
+
+                # Read the original Shapefile
+                print "Writing: " + output_file
+
+                with fiona.collection(os.path.join(input_base_path, "baselayer_3857.shp"), 'r') as source:
+                    # The output has the same schema
+                    schema = source.schema.copy()
+                    schema['properties']['value'] = 'float'
+
+                    # write a new shapefile
+                    # TODO: dinamic projection
+                    with fiona.collection(output_file, 'w', 
+                        crs = source.crs, 
+                        driver=source.driver, 
+                        schema=schema) as output:
+                        for f in source:
+                            for d in data[1]:
+                                code = d['country']['id']
+                                value = d['value']
+                                #print code, value
+                                # print elem['properties']
+                                #print elem['properties']['ISO2']
+                                if code == f['properties']['ISO2']:
+                                    # print value
+                                    if value:
+                                        f['properties']['value'] = value
+                                        output.write(f)
+
+                                        # output.write({'properties': f['properties'],'geometry': mapping(shape(f['geometry']))})
+
+                try:
+
+                    # TODO: fix with fiona
+                    copyfile(os.path.join(input_base_path, 'baselayer_3857.prj'), os.path.join(output_base_path, clean_layer_name + ".prj"))
+
+                    print "Adding: " + indicator_name + ' (' + year +')'
+                    layer = self.iface.addVectorLayer(
+                        output_file,
+                        indicator_name + ' (' + year +')',
+                        "ogr")
+
+
+                    print "Start creating style"
+                    # TODO: calculate ranges
+                    # define ranges: label, lower value, upper value, color name
+                    # coffee_prices = (
+                    #     ('Free', 0.0, 0.0, 'green'),
+                    #     ('Cheap', 0.0, 1.5, 'yellow'),
+                    #     ('Average', 1.5, 2.5, 'orange'),
+                    #     ('Expensive', 2.5, 999.0, 'red'),
+                    # )
+
+                    # # create a category for each item in animals
+                    # ranges = []
+                    # for label, lower, upper, color in coffee_prices:
+                    #     symbol = QgsSymbolV2.defaultSymbol(layer.geometryType())
+                    #     symbol.setColor(QColor(color))
+                    #     rng = QgsRendererRangeV2(lower, upper, symbol, label)
+                    #     ranges.append(rng)
+
+                    # # create the renderer and assign it to a layer
+                    # expression = 'value' # field name
+                    # renderer = QgsGraduatedSymbolRendererV2(expression, ranges)
+                    # layer.setRendererV2(renderer)
+
+                    # myTargetField = 'Value'
+                    # myRangeList = []
+                    # myOpacity = 1
+                    # # Make our first symbol and range...
+                    # myMin = 0.0
+                    # myMax = 50.0
+                    # myLabel = 'Group 1'
+                    # myColour = QColor('#ffee00')
+                    # mySymbol1 = QgsSymbolV2.defaultSymbol(layer.geometryType())
+                    # mySymbol1.setColor(myColour)
+                    # mySymbol1.setAlpha(myOpacity)
+                    # myRange1 = QgsRendererRangeV2(myMin, myMax, mySymbol1, myLabel)
+                    # myRangeList.append(myRange1)
+                    # #now make another symbol and range...
+                    # myMin = 50.1
+                    # myMax = 100
+                    # myLabel = 'Group 2'
+                    # myColour = QColor('#00eeff')
+                    # mySymbol2 = QgsSymbolV2.defaultSymbol(layer.geometryType())
+                    # mySymbol2.setColor(myColour)
+                    # mySymbol2.setAlpha(myOpacity)
+                    # myRange2 = QgsRendererRangeV2(myMin, myMax, mySymbol2, myLabel)
+                    # myRangeList.append(myRange2)
+                    # myRenderer = QgsGraduatedSymbolRendererV2('', myRangeList)
+                    # myRenderer.setMode(QgsGraduatedSymbolRendererV2.EqualInterval)
+                    # myRenderer.setClassAttribute(myTargetField)
+                    # layer.setRendererV2(myRenderer)
+
+                    applyGraduatedSymbologyStandardMode(layer, 'Value', 5,  QgsGraduatedSymbolRendererV2.Jenks)
+
+                    processed_layers = processed_layers+1
+                    print processed_layers, total
+                    print int((float(processed_layers)/float(total)) *100)
+                    self.dlg.progressBar.setValue(int((float(processed_layers)/float(total)) *100))
+
+                    print "End creating style"
+                except Exception, e:
+                    print e
+            except Exception, e:
+                print e
+
+        self.dlg.progressText.setText('Process Finished')
+
 
     def run(self):
         # TODO: how to style as default the map?
@@ -213,9 +373,9 @@ class GeobricksQgisPluginWorldBank:
 
         # TODO cache codes
         values = []
-        indicators = {}
+        self.indicators = {}
         for d in data[1]:
-            indicators[d['name']] = d['id']
+            self.indicators[d['name']] = d['id']
             values.append(d['name'])
 
         self.dlg.cbIndicator.addItems(values)
@@ -226,6 +386,8 @@ class GeobricksQgisPluginWorldBank:
 
         self.dlg.cbFromYear.addItems(values)
         self.dlg.cbToYear.addItems(values)
+
+        QtCore.QObject.connect(self.dlg.createLayers, QtCore.SIGNAL("clicked()"), self.process_layers)
 
 
 
@@ -238,141 +400,7 @@ class GeobricksQgisPluginWorldBank:
         if result:
             # Do something useful here - delete the line containing pass and
             # substitute with your code.
-            print "Processing layers"
-
-            indicator_name = self.dlg.cbIndicator.currentText()
-            indicator = indicators[indicator_name]
-            #print indicator
-
-            fromYear = int(self.dlg.cbFromYear.currentText())-1
-            toYear = int(self.dlg.cbToYear.currentText())
-            print toYear, fromYear
-
-            for year in range(toYear, fromYear, -1):
-                year = str(year)
-                print year
-
-                #req = urllib2.Request('http://api.worldbank.org/countries/indicators/1.0.HCount.1.25usd?per_page=100&date=2008:2008&format=json')
-                #req = urllib2.Request('http://api.worldbank.org/countries/indicators/NY.GDP.MKTP.CD?date=2013&format=json&per_page=10000')
-                #req = urllib2.Request('http://api.worldbank.org/countries/indicators/AG.LND.ARBL.ZS?date=2012&format=json&per_page=10000')
-                try:
-                    request = 'http://api.worldbank.org/countries/all/indicators/' + indicator + '?date=' + year + '&format=json&per_page=10000'
-                    print"Request: ", request
-
-                    req = urllib2.Request(request)
-                    response = urllib2.urlopen(req)
-                    json = response.read()
-                    data = simplejson.loads(json)
-                    print "Request End"
-
-                    # print data
-                    clean_layer_name = re.sub('\W+','_', indicator_name) + "_" + year
-
-                    output_base_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "output")
-                    if not os.path.exists(output_base_path):
-                        os.mkdir(output_base_path)
-
-                    output_file = os.path.join(output_base_path, clean_layer_name + ".shp")
-                    input_base_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "resources")
-
-                    # Read the original Shapefile
-                    print "Writing: " + output_file
-                    with fiona.collection(os.path.join(input_base_path, "baselayer_3857.shp"), 'r') as source:
-                        # The output has the same schema
-                        schema = source.schema.copy()
-                        schema['properties']['value'] = 'float'
-
-                        # write a new shapefile
-                        # TODO: dinamic projection
-                        with fiona.collection(output_file, 'w', 
-                            crs = source.crs, 
-                            driver=source.driver, 
-                            schema=schema) as output:
-                            for f in source:
-                                for d in data[1]:
-                                    code = d['country']['id']
-                                    value = d['value']
-                                    #print code, value
-                                    # print elem['properties']
-                                    #print elem['properties']['ISO2']
-                                    if code == f['properties']['ISO2']:
-                                        # print value
-                                        if value:
-                                            f['properties']['value'] = value
-                                            output.write(f)
-
-                                            # output.write({'properties': f['properties'],'geometry': mapping(shape(f['geometry']))})
-
-                    try:
-
-                        # TODO: fix with fiona
-                        copyfile(os.path.join(input_base_path, 'baselayer_3857.prj'), os.path.join(output_base_path, clean_layer_name + ".prj"))
-
-                        print "Adding: " + indicator_name + ' (' + year +')'
-                        layer = self.iface.addVectorLayer(
-                            output_file,
-                            indicator_name + ' (' + year +')',
-                            "ogr")
-
-
-                        print "Start creating style"
-                        # TODO: calculate ranges
-                        # define ranges: label, lower value, upper value, color name
-                        # coffee_prices = (
-                        #     ('Free', 0.0, 0.0, 'green'),
-                        #     ('Cheap', 0.0, 1.5, 'yellow'),
-                        #     ('Average', 1.5, 2.5, 'orange'),
-                        #     ('Expensive', 2.5, 999.0, 'red'),
-                        # )
-
-                        # # create a category for each item in animals
-                        # ranges = []
-                        # for label, lower, upper, color in coffee_prices:
-                        #     symbol = QgsSymbolV2.defaultSymbol(layer.geometryType())
-                        #     symbol.setColor(QColor(color))
-                        #     rng = QgsRendererRangeV2(lower, upper, symbol, label)
-                        #     ranges.append(rng)
-
-                        # # create the renderer and assign it to a layer
-                        # expression = 'value' # field name
-                        # renderer = QgsGraduatedSymbolRendererV2(expression, ranges)
-                        # layer.setRendererV2(renderer)
-
-                        # myTargetField = 'Value'
-                        # myRangeList = []
-                        # myOpacity = 1
-                        # # Make our first symbol and range...
-                        # myMin = 0.0
-                        # myMax = 50.0
-                        # myLabel = 'Group 1'
-                        # myColour = QColor('#ffee00')
-                        # mySymbol1 = QgsSymbolV2.defaultSymbol(layer.geometryType())
-                        # mySymbol1.setColor(myColour)
-                        # mySymbol1.setAlpha(myOpacity)
-                        # myRange1 = QgsRendererRangeV2(myMin, myMax, mySymbol1, myLabel)
-                        # myRangeList.append(myRange1)
-                        # #now make another symbol and range...
-                        # myMin = 50.1
-                        # myMax = 100
-                        # myLabel = 'Group 2'
-                        # myColour = QColor('#00eeff')
-                        # mySymbol2 = QgsSymbolV2.defaultSymbol(layer.geometryType())
-                        # mySymbol2.setColor(myColour)
-                        # mySymbol2.setAlpha(myOpacity)
-                        # myRange2 = QgsRendererRangeV2(myMin, myMax, mySymbol2, myLabel)
-                        # myRangeList.append(myRange2)
-                        # myRenderer = QgsGraduatedSymbolRendererV2('', myRangeList)
-                        # myRenderer.setMode(QgsGraduatedSymbolRendererV2.EqualInterval)
-                        # myRenderer.setClassAttribute(myTargetField)
-                        # layer.setRendererV2(myRenderer)
-
-                        applyGraduatedSymbologyStandardMode(layer, 'Value', 5,  QgsGraduatedSymbolRendererV2.Jenks)
-
-                        print "End creating style"
-                    except Exception, e:
-                        print e
-                except Exception, e:
-                    print e
+            pass
 
 
 def validatedDefaultSymbol( geometryType ):
