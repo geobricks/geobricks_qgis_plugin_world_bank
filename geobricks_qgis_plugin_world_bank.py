@@ -8,11 +8,8 @@ import fiona
 from fiona.crs import from_epsg
 from shapely.geometry import mapping, shape
 from PyQt4.QtGui import *
-from qgis.core import (QgsVectorLayer,
-                        QgsMapLayerRegistry,
-                        QgsGraduatedSymbolRendererV2,
-                        QgsSymbolV2,
-                        QgsRendererRangeV2)
+from PyQt4 import QtCore, QtGui
+from qgis.core import QgsStyleV2, QgsVectorGradientColorRampV2, QgsVectorLayer, QgsMapLayerRegistry, QgsGraduatedSymbolRendererV2, QgsSymbolV2,  QgsRendererRangeV2
 
 # from geobricks_mapclassify.core.mapclassify import MapClassify
 
@@ -41,6 +38,7 @@ from qgis.core import (QgsVectorLayer,
 """
 from PyQt4.QtCore import QSettings, QTranslator, qVersion, QCoreApplication
 from PyQt4.QtGui import QAction, QIcon
+from PyQt4.QtGui import *
 # Initialize Qt resources from file resources.py
 import resources
 # Import the code for the dialog
@@ -320,28 +318,84 @@ class GeobricksQgisPluginWorldBank:
                         print "Start creating style"
                         # TODO: calculate ranges
                         # define ranges: label, lower value, upper value, color name
-                        coffee_prices = (
-                            ('Free', 0.0, 0.0, 'green'),
-                            ('Cheap', 0.0, 1.5, 'yellow'),
-                            ('Average', 1.5, 2.5, 'orange'),
-                            ('Expensive', 2.5, 999.0, 'red'),
-                        )
+                        # coffee_prices = (
+                        #     ('Free', 0.0, 0.0, 'green'),
+                        #     ('Cheap', 0.0, 1.5, 'yellow'),
+                        #     ('Average', 1.5, 2.5, 'orange'),
+                        #     ('Expensive', 2.5, 999.0, 'red'),
+                        # )
 
-                        # create a category for each item in animals
-                        ranges = []
-                        for label, lower, upper, color in coffee_prices:
-                            symbol = QgsSymbolV2.defaultSymbol(layer.geometryType())
-                            symbol.setColor(QColor(color))
-                            rng = QgsRendererRangeV2(lower, upper, symbol, label)
-                            ranges.append(rng)
+                        # # create a category for each item in animals
+                        # ranges = []
+                        # for label, lower, upper, color in coffee_prices:
+                        #     symbol = QgsSymbolV2.defaultSymbol(layer.geometryType())
+                        #     symbol.setColor(QColor(color))
+                        #     rng = QgsRendererRangeV2(lower, upper, symbol, label)
+                        #     ranges.append(rng)
 
-                        # create the renderer and assign it to a layer
-                        expression = 'value' # field name
-                        renderer = QgsGraduatedSymbolRendererV2(expression, ranges)
-                        layer.setRendererV2(renderer)
+                        # # create the renderer and assign it to a layer
+                        # expression = 'value' # field name
+                        # renderer = QgsGraduatedSymbolRendererV2(expression, ranges)
+                        # layer.setRendererV2(renderer)
+
+                        # myTargetField = 'Value'
+                        # myRangeList = []
+                        # myOpacity = 1
+                        # # Make our first symbol and range...
+                        # myMin = 0.0
+                        # myMax = 50.0
+                        # myLabel = 'Group 1'
+                        # myColour = QColor('#ffee00')
+                        # mySymbol1 = QgsSymbolV2.defaultSymbol(layer.geometryType())
+                        # mySymbol1.setColor(myColour)
+                        # mySymbol1.setAlpha(myOpacity)
+                        # myRange1 = QgsRendererRangeV2(myMin, myMax, mySymbol1, myLabel)
+                        # myRangeList.append(myRange1)
+                        # #now make another symbol and range...
+                        # myMin = 50.1
+                        # myMax = 100
+                        # myLabel = 'Group 2'
+                        # myColour = QColor('#00eeff')
+                        # mySymbol2 = QgsSymbolV2.defaultSymbol(layer.geometryType())
+                        # mySymbol2.setColor(myColour)
+                        # mySymbol2.setAlpha(myOpacity)
+                        # myRange2 = QgsRendererRangeV2(myMin, myMax, mySymbol2, myLabel)
+                        # myRangeList.append(myRange2)
+                        # myRenderer = QgsGraduatedSymbolRendererV2('', myRangeList)
+                        # myRenderer.setMode(QgsGraduatedSymbolRendererV2.EqualInterval)
+                        # myRenderer.setClassAttribute(myTargetField)
+                        # layer.setRendererV2(myRenderer)
+
+                        applyGraduatedSymbologyStandardMode(layer, 'Value', 5,  QgsGraduatedSymbolRendererV2.Jenks)
 
                         print "End creating style"
                     except Exception, e:
                         print e
                 except Exception, e:
                     print e
+
+
+def validatedDefaultSymbol( geometryType ):
+    symbol = QgsSymbolV2.defaultSymbol( geometryType )
+    if symbol is None:
+        if geometryType == QGis.Point:
+            symbol = QgsMarkerSymbolV2()
+        elif geometryType == QGis.Line:
+            symbol =  QgsLineSymbolV2 ()
+        elif geometryType == QGis.Polygon:
+            symbol = QgsFillSymbolV2 ()
+    return symbol
+
+
+def applyGraduatedSymbologyStandardMode( layer, field, classes, mode):
+    # symbol = validatedDefaultSymbol( layer.geometryType() )
+    # symbol = QgsFillSymbolV2()
+    symbol = QgsSymbolV2.defaultSymbol(layer.geometryType())
+    style = QgsStyleV2().defaultStyle()
+    colorRamp = style.colorRampRef(u'Blues')
+    print colorRamp
+    #colorRamp = QgsVectorGradientColorRampV2.create({'color1':'255,0,0,255', 'color2':'0,0,255,255','stops':'0.25;255,255,0,255:0.50;0,255,0,255:0.75;0,255,255,255'})
+    #print colorRamp
+    renderer = QgsGraduatedSymbolRendererV2.createRenderer( layer, field, classes, mode, symbol, colorRamp )
+    layer.setRendererV2( renderer )
+
