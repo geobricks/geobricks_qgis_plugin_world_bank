@@ -23,7 +23,8 @@
 import os
 import re
 import urllib2
-import simplejson
+# import simplejson
+import json as jsonParser
 from shutil import copyfile
 import fiona
 from fiona.crs import from_epsg
@@ -208,8 +209,8 @@ class GeobricksQgisPluginWorldBank:
         req = urllib2.Request('http://api.worldbank.org/indicators?per_page=500&format=json')
 
         response = urllib2.urlopen(req)
-        json = response.read()
-        data = simplejson.loads(json)
+        response_json = response.read()
+        data = jsonParser.loads(response_json)
 
         # TODO cache codes
         values = []
@@ -262,7 +263,7 @@ class GeobricksQgisPluginWorldBank:
                     req = urllib2.Request(request)
                     response = urllib2.urlopen(req)
                     json = response.read()
-                    data = simplejson.loads(json)
+                    data = jsonParser.loads(json)
                     print "Request End"
 
                     # print data
@@ -375,16 +376,16 @@ class GeobricksQgisPluginWorldBank:
                     print e
 
 
-def validatedDefaultSymbol( geometryType ):
-    symbol = QgsSymbolV2.defaultSymbol( geometryType )
-    if symbol is None:
-        if geometryType == QGis.Point:
-            symbol = QgsMarkerSymbolV2()
-        elif geometryType == QGis.Line:
-            symbol =  QgsLineSymbolV2 ()
-        elif geometryType == QGis.Polygon:
-            symbol = QgsFillSymbolV2 ()
-    return symbol
+# def validatedDefaultSymbol( geometryType ):
+#     symbol = QgsSymbolV2.defaultSymbol( geometryType )
+#     if symbol is None:
+#         if geometryType == QGis.Point:
+#             symbol = QgsMarkerSymbolV2()
+#         elif geometryType == QGis.Line:
+#             symbol =  QgsLineSymbolV2 ()
+#         elif geometryType == QGis.Polygon:
+#             symbol = QgsFillSymbolV2 ()
+#     return symbol
 
 
 def applyGraduatedSymbologyStandardMode( layer, field, classes, mode):
