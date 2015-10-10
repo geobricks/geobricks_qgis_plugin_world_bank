@@ -214,6 +214,8 @@ class GeobricksQgisPluginWorldBank:
 
         print total
 
+        layers = []
+
         for year in range(fromYear, toYear):
             year = str(year)
             print year
@@ -278,13 +280,16 @@ class GeobricksQgisPluginWorldBank:
                     copyfile(os.path.join(input_base_path, 'baselayer_3857.prj'), os.path.join(output_base_path, clean_layer_name + ".prj"))
 
                     print "Adding: " + indicator_name + ' (' + year +')'
-                    layer = self.iface.addVectorLayer(
-                        output_file,
-                        indicator_name + ' (' + year +')',
-                        "ogr")
+                    layers.append({ 
+                        'name': indicator_name + ' (' + year +')', 
+                        'file': output_file
+                        })
 
 
-                    print "Start creating style"
+                    # layer = self.iface.addVectorLayer(output_file,indicator_name + ' (' + year +')',"ogr")
+
+
+                    # print "Start creating style"
                     # TODO: calculate ranges
                     # define ranges: label, lower value, upper value, color name
                     # coffee_prices = (
@@ -335,7 +340,7 @@ class GeobricksQgisPluginWorldBank:
                     # myRenderer.setClassAttribute(myTargetField)
                     # layer.setRendererV2(myRenderer)
 
-                    applyGraduatedSymbologyStandardMode(layer, 'Value', 5,  QgsGraduatedSymbolRendererV2.Jenks)
+                    # applyGraduatedSymbologyStandardMode(layer, 'Value', 5,  QgsGraduatedSymbolRendererV2.Jenks)
 
                     processed_layers = processed_layers+1
                     print processed_layers, total
@@ -348,7 +353,14 @@ class GeobricksQgisPluginWorldBank:
             except Exception, e:
                 print e
 
+
+        for l in layers:
+            layer = self.iface.addVectorLayer(l['file'], l['name'], "ogr")
+
+            applyGraduatedSymbologyStandardMode(layer, 'Value', 5,  QgsGraduatedSymbolRendererV2.Jenks)
         self.dlg.progressText.setText('Process Finished')
+
+
 
 
     def run(self):
