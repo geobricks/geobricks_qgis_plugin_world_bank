@@ -196,7 +196,7 @@ class GeobricksQgisPluginWorldBank:
 
         processed_layers = 0
         self.dlg.progressBar.setValue(processed_layers)
-        self.dlg.progressText.setText('')
+        self.dlg.progressText.setText('Fetching Data from the World Bank')
 
         # self.dlg.progressBar.setValue(50)   
         # print self.dlg.progressText
@@ -364,36 +364,43 @@ class GeobricksQgisPluginWorldBank:
 
 
     def run(self):
-        # TODO: how to style as default the map?
-
-        # req = urllib2.Request('http://fenixapps2.fao.org/api/v1.0/en/codes/areagroup/qc')
+        # req = urllib2.Request('http://api.worldbank.org/indicators?per_page=500&format=json')
         # response = urllib2.urlopen(req)
         # json = response.read()
         # data = simplejson.loads(json)
-        #
+        # # TODO cache codes
         # values = []
-        # for d in data['data']:
-        #      values.append(d['label'])
-        #
-        # self.dlg.cbCountries.addItems(values)
+        # self.indicators = {}
+        # for d in data[1]:
+        #     self.indicators[d['name']] = d['id']
+        #     values.append(d['name'])
 
-        req = urllib2.Request('http://api.worldbank.org/indicators?per_page=500&format=json')
+        # self.dlg.cbIndicator.addItems(values)
 
-        response = urllib2.urlopen(req)
-        json = response.read()
-        data = simplejson.loads(json)
+        data = [{
+            'name': 'GPS (current US$)',
+            'id': 'NY.GDP.MKTP.CD'
+        },
+        {
+            'name': 'Rural Population',
+            'id': 'SP.RUR.TOTL'
+        }]
 
-        # TODO cache codes
         values = []
         self.indicators = {}
-        for d in data[1]:
+        for d in data:
             self.indicators[d['name']] = d['id']
             values.append(d['name'])
 
         self.dlg.cbIndicator.addItems(values)
 
+
+
+
+
+
         values = []
-        for year in range(2012, 1980, -1):
+        for year in range(2014, 1980, -1):
             values.append(str(year))
 
         self.dlg.cbFromYear.addItems(values)
