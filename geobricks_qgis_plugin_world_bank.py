@@ -275,6 +275,7 @@ class GeobricksQgisPluginWorldBank:
                                     # layer.changeAttributeValue(feat.id(), 2, 30)
 
                 layer.commitChanges()
+
                 
                 # check if the layer has been changed
                 if addedValue:                
@@ -285,12 +286,15 @@ class GeobricksQgisPluginWorldBank:
                     print data 
 
 
-                processed_layers = processed_layers+1
-                self.dlg.progressBar.setValue(int((float(processed_layers)/float(total)) *100))
+
 
                 # print "End creating style"
             except Exception, e:
                 print e
+
+            # changing progress bar value  
+            processed_layers = processed_layers+1
+            self.dlg.progressBar.setValue(int((float(processed_layers)/float(total)) *100))
 
         print layers
         print len(layers)
@@ -301,18 +305,87 @@ class GeobricksQgisPluginWorldBank:
         self.dlg.progressText.setText('Process Finished')
 
 
+    def update_indicator(self):
+        self.dlg.cbIndicator.clear()
+        source_name = self.dlg.cbSource.currentText()
+        source_id = self.sources[source_name]
+
+        print source_id
+
+        req = urllib2.Request('http://api.worldbank.org/source/' + str(source_id) + '/indicators?per_page=1500&format=json')
+        print req
+        response = urllib2.urlopen(req)
+        json_data = response.read()
+        data = json.loads(json_data)
+        # TODO cache codes
+        values = []
+        self.indicators = {}
+        for d in data[1]:
+            self.indicators[d['name']] = d['id']
+            values.append(d['name'])
+
+        values.sort()
+        self.dlg.cbIndicator.addItems(values)
+
 
     def run(self):
 
         if not self.initialized:
 
+            # TODO: remove old files in output folder
+
             # dirty check if interface was already initialized            
             self.initialized = True
 
+            data = [
+            {
+                'name': 'Doing Business',
+                'id': '1'
+            },
+            {
+                'name': 'World Development Indicators',
+                'id': '2'
+            },
+            {
+                'name': 'Worldwide Governance Indicators',
+                'id': '3'
+            },
+            {
+                'name': 'Subnational Malnutrition Database',
+                'id': '5'
+            },
+            {
+                'name': 'International Debt Statistics',
+                'id': '6'
+            }
+            ]
+
+            values = []
+            self.sources = {}
+            for d in data:
+                self.sources[d['name']] = d['id']
+                values.append(d['name'])
+
+            self.dlg.cbSource.addItems(values)
+
+            # call first indicator
+            self.update_indicator()
+
+            self.dlg.cbSource.currentIndexChanged.connect(self.update_indicator)
+
+            # QtCore.QObject.connect(self.dlg.cbSource, QtCore.SIGNAL("clicked()"), self.update_indicator)
+
+            # values = []
+            # self.indicators = {}
+            # for d in data:
+            #     self.indicators[d['name']] = d['id']
+            #     values.append(d['name'])
+
             # req = urllib2.Request('http://api.worldbank.org/indicators?per_page=500&format=json')
+            # req = urllib2.Request('http://api.worldbank.org/source/2/indicators?per_page=1500&format=json')
             # response = urllib2.urlopen(req)
-            # json = response.read()
-            # data = simplejson.loads(json)
+            # json_data = response.read()
+            # data = json.loads(json_data)
             # # TODO cache codes
             # values = []
             # self.indicators = {}
@@ -320,30 +393,33 @@ class GeobricksQgisPluginWorldBank:
             #     self.indicators[d['name']] = d['id']
             #     values.append(d['name'])
 
+            # values.sort()
             # self.dlg.cbIndicator.addItems(values)
 
-            data = [
-            {
-                'name': 'GPS (current US$)',
-                'id': 'NY.GDP.MKTP.CD'
-            },
-            {
-                'name': 'Rural Population',
-                'id': 'SP.RUR.TOTL'
-            },
-            {
-                'name': 'Forest area (% of land area)',
-                'id': 'AG.LND.FRST.ZS'
-            },
-            ]
+            
 
-            values = []
-            self.indicators = {}
-            for d in data:
-                self.indicators[d['name']] = d['id']
-                values.append(d['name'])
+            # data = [
+            # {
+            #     'name': 'GPS (current US$)',
+            #     'id': 'NY.GDP.MKTP.CD'
+            # },
+            # {
+            #     'name': 'Rural Population',
+            #     'id': 'SP.RUR.TOTL'
+            # },
+            # {
+            #     'name': 'Forest area (% of land area)',
+            #     'id': 'AG.LND.FRST.ZS'
+            # },
+            # ]
 
-            self.dlg.cbIndicator.addItems(values)
+            # values = []
+            # self.indicators = {}
+            # for d in data:
+            #     self.indicators[d['name']] = d['id']
+            #     values.append(d['name'])
+
+            # self.dlg.cbIndicator.addItems(values)
 
             # TODO: load the years dinamically
             values = []
