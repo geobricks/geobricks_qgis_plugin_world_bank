@@ -78,6 +78,7 @@ class GeobricksQgisPluginWorldBank:
         self.toolbar = self.iface.addToolBar(u'GeobricksQgisPluginWorldBank')
         self.toolbar.setObjectName(u'GeobricksQgisPluginWorldBank')
 
+        # TODO: check if there is a better way to handle inizialition
         self.initialized = False
 
     # noinspection PyMethodMayBeStatic
