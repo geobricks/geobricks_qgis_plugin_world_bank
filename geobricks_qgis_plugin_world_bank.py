@@ -78,6 +78,8 @@ class GeobricksQgisPluginWorldBank:
         self.toolbar = self.iface.addToolBar(u'GeobricksQgisPluginWorldBank')
         self.toolbar.setObjectName(u'GeobricksQgisPluginWorldBank')
 
+        self.initialized = False
+
     # noinspection PyMethodMayBeStatic
     def tr(self, message):
         """Get the translation for a string using Qt translation API.
@@ -195,10 +197,6 @@ class GeobricksQgisPluginWorldBank:
         self.dlg.progressBar.setValue(processed_layers)
         self.dlg.progressText.setText('Fetching Data from the World Bank')
 
-        # self.dlg.progressBar.setValue(50)   
-        # print self.dlg.progressText
-
-        print "Processing layers"
         indicator_name = self.dlg.cbIndicator.currentText()
         indicator = self.indicators[indicator_name]
         #print indicator
@@ -224,13 +222,13 @@ class GeobricksQgisPluginWorldBank:
             #req = urllib2.Request('http://api.worldbank.org/countries/indicators/AG.LND.ARBL.ZS?date=2012&format=json&per_page=10000')
             try:
                 request = 'http://api.worldbank.org/countries/all/indicators/' + indicator + '?date=' + year + '&format=json&per_page=10000'
-                print"Request: ", request
+                # print"Request: ", request
 
                 req = urllib2.Request(request)
                 response = urllib2.urlopen(req)
                 json_data = response.read()
                 data = json.loads(json_data)
-                print "Request End"
+                # print "Request End"
 
                 # print data
                 clean_layer_name = re.sub('\W+','_', indicator_name) + "_" + year
@@ -277,12 +275,12 @@ class GeobricksQgisPluginWorldBank:
                 processed_layers = processed_layers+1
                 self.dlg.progressBar.setValue(int((float(processed_layers)/float(total)) *100))
 
-                print "End creating style"
+                # print "End creating style"
             except Exception, e:
                 print e
 
-        # print layers
-        # print len(layers)
+        print layers
+        print len(layers)
         for l in layers:
             QgsMapLayerRegistry.instance().addMapLayer(l)
 
@@ -292,45 +290,51 @@ class GeobricksQgisPluginWorldBank:
 
 
     def run(self):
-        # req = urllib2.Request('http://api.worldbank.org/indicators?per_page=500&format=json')
-        # response = urllib2.urlopen(req)
-        # json = response.read()
-        # data = simplejson.loads(json)
-        # # TODO cache codes
-        # values = []
-        # self.indicators = {}
-        # for d in data[1]:
-        #     self.indicators[d['name']] = d['id']
-        #     values.append(d['name'])
 
-        # self.dlg.cbIndicator.addItems(values)
+        if not self.initialized:
 
-        data = [{
-            'name': 'GPS (current US$)',
-            'id': 'NY.GDP.MKTP.CD'
-        },
-        {
-            'name': 'Rural Population',
-            'id': 'SP.RUR.TOTL'
-        }]
+            # dirty check if interface was already initialized            
+            self.initialized = True
 
-        values = []
-        self.indicators = {}
-        for d in data:
-            self.indicators[d['name']] = d['id']
-            values.append(d['name'])
+            # req = urllib2.Request('http://api.worldbank.org/indicators?per_page=500&format=json')
+            # response = urllib2.urlopen(req)
+            # json = response.read()
+            # data = simplejson.loads(json)
+            # # TODO cache codes
+            # values = []
+            # self.indicators = {}
+            # for d in data[1]:
+            #     self.indicators[d['name']] = d['id']
+            #     values.append(d['name'])
 
-        self.dlg.cbIndicator.addItems(values)
+            # self.dlg.cbIndicator.addItems(values)
 
-        # TODO: load the years dinamically
-        values = []
-        for year in range(2014, 1980, -1):
-            values.append(str(year))
+            data = [{
+                'name': 'GPS (current US$)',
+                'id': 'NY.GDP.MKTP.CD'
+            },
+            {
+                'name': 'Rural Population',
+                'id': 'SP.RUR.TOTL'
+            }]
 
-        self.dlg.cbFromYear.addItems(values)
-        self.dlg.cbToYear.addItems(values)
+            values = []
+            self.indicators = {}
+            for d in data:
+                self.indicators[d['name']] = d['id']
+                values.append(d['name'])
 
-        QtCore.QObject.connect(self.dlg.createLayers, QtCore.SIGNAL("clicked()"), self.process_layers)
+            self.dlg.cbIndicator.addItems(values)
+
+            # TODO: load the years dinamically
+            values = []
+            for year in range(2014, 1980, -1):
+                values.append(str(year))
+
+            self.dlg.cbFromYear.addItems(values)
+            self.dlg.cbToYear.addItems(values)
+
+            QtCore.QObject.connect(self.dlg.createLayers, QtCore.SIGNAL("clicked()"), self.process_layers)
 
 
 
@@ -364,7 +368,7 @@ def applyGraduatedSymbologyStandardMode( layer, field, classes, mode):
     symbol = QgsSymbolV2.defaultSymbol(layer.geometryType())
     style = QgsStyleV2().defaultStyle()
     colorRamp = style.colorRampRef(u'Blues')
-    print colorRamp
+    # print colorRamp
     #colorRamp = QgsVectorGradientColorRampV2.create({'color1':'255,0,0,255', 'color2':'0,0,255,255','stops':'0.25;255,255,0,255:0.50;0,255,0,255:0.75;0,255,255,255'})
     #print colorRamp
     renderer = QgsGraduatedSymbolRendererV2.createRenderer(layer, field, classes, mode, symbol, colorRamp)
