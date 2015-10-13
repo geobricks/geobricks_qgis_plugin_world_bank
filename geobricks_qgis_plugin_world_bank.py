@@ -232,6 +232,7 @@ class GeobricksQgisPluginWorldBank:
                 # print "Request End"
 
                 # print data
+                layer_name = indicator_name + " (" + year + ")"
                 clean_layer_name = re.sub('\W+','_', indicator_name) + "_" + year
 
 
@@ -253,7 +254,7 @@ class GeobricksQgisPluginWorldBank:
 
                 # Editing output_file
                 print "Editing: " + output_file
-                layer = QgsVectorLayer(output_file, clean_layer_name, "ogr")
+                layer = QgsVectorLayer(output_file, layer_name, "ogr")
                 layer.startEditing()
 
                 # TODO: add data check instead of the addedValue boolean?
