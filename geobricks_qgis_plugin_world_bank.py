@@ -256,22 +256,33 @@ class GeobricksQgisPluginWorldBank:
                 layer = QgsVectorLayer(output_file, clean_layer_name, "ogr")
                 layer.startEditing()
 
+                # TODO: add data check instead of the addedValue boolean?
+                addedValue = False
                 for feat in layer.getFeatures():  
                     if feat['iso_a2'] is not None:
                         for d in data[1]:
                             code = d['country']['id']
                             value = d['value']
                             if code == feat['iso_a2']:
-                                if value:                                  
+                                if value:                            
                                     # print feat['iso_a2'], value
                                     # TODO: automatize the index 63 of feat['iso_a2']
                                     layer.changeAttributeValue(feat.id(), 63 , float(value))
+                                    addedValue = True
                                     break
                                     # (UpdateFeatureID,FieldToUpdate,self.CurrentWidget.text(),True)             
                                     # layer.changeAttributeValue(feat.id(), 2, 30)
 
                 layer.commitChanges()
-                layers.append(layer)
+                
+                # check if the layer has been changed
+                if addedValue:                
+                    layers.append(layer)
+                else:
+                    # TODO: give a message to the user. something like "data are not available for this year"
+                    print "WARN: there are no data available for" + str(year)
+                    print data 
+
 
                 processed_layers = processed_layers+1
                 self.dlg.progressBar.setValue(int((float(processed_layers)/float(total)) *100))
@@ -310,14 +321,20 @@ class GeobricksQgisPluginWorldBank:
 
             # self.dlg.cbIndicator.addItems(values)
 
-            data = [{
+            data = [
+            {
                 'name': 'GPS (current US$)',
                 'id': 'NY.GDP.MKTP.CD'
             },
             {
                 'name': 'Rural Population',
                 'id': 'SP.RUR.TOTL'
-            }]
+            },
+            {
+                'name': 'Forest area (% of land area)',
+                'id': 'AG.LND.FRST.ZS'
+            },
+            ]
 
             values = []
             self.indicators = {}
