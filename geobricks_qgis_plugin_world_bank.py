@@ -274,7 +274,6 @@ class GeobricksQgisPluginWorldBank:
                 layer.commitChanges()
                 layers.append(layer)
 
-
                 processed_layers = processed_layers+1
                 self.dlg.progressBar.setValue(int((float(processed_layers)/float(total)) *100))
 
@@ -282,12 +281,12 @@ class GeobricksQgisPluginWorldBank:
             except Exception, e:
                 print e
 
-
+        # print layers
+        # print len(layers)
         for l in layers:
-            # layer = self.iface.addVectorLayer(l)
             QgsMapLayerRegistry.instance().addMapLayer(l)
 
-            applyGraduatedSymbologyStandardMode(l, 'Value', 5,  QgsGraduatedSymbolRendererV2.Jenks)
+            applyGraduatedSymbologyStandardMode(l, 'value', 5,  QgsGraduatedSymbolRendererV2.Jenks)
         self.dlg.progressText.setText('Process Finished')
 
 
