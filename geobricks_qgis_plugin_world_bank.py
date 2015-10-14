@@ -332,14 +332,14 @@ class GeobricksQgisPluginWorldBank:
 
         if not self.initialized:
 
+            # dirty check if interface was already initialized
+            self.initialized = True
+
             # TODO: move to a function the remove the old files in output folder
             if os.path.exists(os.path.join(os.path.dirname(os.path.realpath(__file__)), "output")):
                 files = glob.glob(os.path.join(os.path.dirname(os.path.realpath(__file__)), "output", "*"))
                 for f in files: 
                     os.remove(f)
-
-            # dirty check if interface was already initialized            
-            self.initialized = True
 
             data = [
             {
