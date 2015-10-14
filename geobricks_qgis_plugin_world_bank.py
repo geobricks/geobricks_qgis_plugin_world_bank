@@ -296,12 +296,12 @@ class GeobricksQgisPluginWorldBank:
             processed_layers = processed_layers+1
             self.dlg.progressBar.setValue(int((float(processed_layers)/float(total)) *100))
 
-        print layers
-        print len(layers)
+        # print layers
+        # print len(layers)
         for l in layers:
+            applyGraduatedSymbologyStandardMode(l, 'value', 5,  QgsGraduatedSymbolRendererV2.Jenks)
             QgsMapLayerRegistry.instance().addMapLayer(l)
 
-            applyGraduatedSymbologyStandardMode(l, 'value', 5,  QgsGraduatedSymbolRendererV2.Jenks)
         self.dlg.progressText.setText('Process Finished')
 
 
@@ -461,7 +461,7 @@ def validatedDefaultSymbol( geometryType ):
     return symbol
 
 
-def applyGraduatedSymbologyStandardMode( layer, field, classes, mode):
+def applyGraduatedSymbologyStandardMode(layer, field, classes, mode):
     # symbol = validatedDefaultSymbol( layer.geometryType() )
     # symbol = QgsFillSymbolV2()
     symbol = QgsSymbolV2.defaultSymbol(layer.geometryType())
