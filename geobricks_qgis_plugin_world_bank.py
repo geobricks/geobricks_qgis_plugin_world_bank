@@ -27,9 +27,10 @@ import json
 from shutil import copyfile
 
 # TODO: check if all imports are needed
-from qgis.core import QgsStyleV2, QgsVectorGradientColorRampV2, QgsVectorLayer, QgsMapLayerRegistry, QgsGraduatedSymbolRendererV2, QgsSymbolV2,  QgsRendererRangeV2
+from qgis.core import QgsFeature, QgsField, QgsStyleV2, QgsVectorGradientColorRampV2, QgsVectorLayer, QgsMapLayerRegistry, QgsGraduatedSymbolRendererV2, QgsSymbolV2,  QgsRendererRangeV2
+from PyQt4.QtCore import *
 from PyQt4 import QtCore
-from PyQt4.QtCore import QSettings, QTranslator, qVersion, QCoreApplication
+# from PyQt4.QtCore import QSettings, QTranslator, qVersion, QCoreApplication
 from PyQt4.QtGui import QAction, QIcon
 
 # Initialize Qt resources from file resources.py
@@ -212,83 +213,34 @@ class GeobricksQgisPluginWorldBank:
 
         layers = []
 
+        # create tmp layer
+        tmp_layer = QgsVectorLayer("Polygon", "tmp", "memory") 
+        tmp_data_provider = tmp_layer.dataProvider()
+
+        # add fields
+        tmp_data_provider.addAttributes([QgsField("value", QVariant.Double)])
+
         for year in range(fromYear, toYear):
             year = str(year)
             print year
             self.dlg.progressText.setText('Processing: ' + year + ' '+ indicator_name)
 
-
             #req = urllib2.Request('http://api.worldbank.org/countries/indicators/1.0.HCount.1.25usd?per_page=100&date=2008:2008&format=json')
             #req = urllib2.Request('http://api.worldbank.org/countries/indicators/NY.GDP.MKTP.CD?date=2013&format=json&per_page=10000')
             #req = urllib2.Request('http://api.worldbank.org/countries/indicators/AG.LND.ARBL.ZS?date=2012&format=json&per_page=10000')
             try:
-                request = 'http://api.worldbank.org/countries/all/indicators/' + indicator + '?date=' + year + '&format=json&per_page=10000'
-                # print"Request: ", request
 
-                req = urllib2.Request(request)
-                response = urllib2.urlopen(req)
-                json_data = response.read()
-                data = json.loads(json_data)
-                # print "Request End"
+                # Create Layer                
+                layer, addedValue = self.create_layer(tmp_layer, indicator, indicator_name, year)
 
-                # print data
-                layer_name = indicator_name + " (" + year + ")"
-                clean_layer_name = re.sub('\W+','_', indicator_name) + "_" + year
-
-
-                # creating output path
-                output_base_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "output")
-                if not os.path.exists(output_base_path):
-                    os.mkdir(output_base_path)
-
-                # retrieving input shp
-                output_file = os.path.join(output_base_path, clean_layer_name + ".shp")
-                input_base_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "resources")
-
-                #copy resource file to output
-                resource_files = glob.glob(os.path.join(input_base_path, "ne_110m_admin_0_*"))
-                for resource_file in resource_files:
-                    base, extension = os.path.splitext(resource_file)                      
-                    copyfile(resource_file, os.path.join(output_base_path, clean_layer_name + extension))
-
-
-                # Editing output_file
-                print "Editing: " + output_file
-                layer = QgsVectorLayer(output_file, layer_name, "ogr")
-                layer.startEditing()
-
-                # TODO: add data check instead of the addedValue boolean?
-                addedValue = False
-                for feat in layer.getFeatures():  
-                    if feat['iso_a2'] is not None:
-                        for d in data[1]:
-                            code = d['country']['id']
-                            value = d['value']
-                            if code == feat['iso_a2']:
-                                if value:                            
-                                    # print feat['iso_a2'], value
-                                    # TODO: automatize the index 63 of feat['iso_a2']
-                                    layer.changeAttributeValue(feat.id(), 63 , float(value))
-                                    addedValue = True
-                                    break
-                                    # (UpdateFeatureID,FieldToUpdate,self.CurrentWidget.text(),True)             
-                                    # layer.changeAttributeValue(feat.id(), 2, 30)
-
-                layer.commitChanges()
-
-                
                 # check if the layer has been changed
                 if addedValue:                
                     layers.append(layer)
                 else:
                     # TODO: give a message to the user. something like "data are not available for this year"
                     print "WARN: there are no data available for" + str(year)
-                    print data 
+                    # print data 
 
-
-
-
-                # print "End creating style"
             except Exception, e:
                 print e
 
@@ -296,14 +248,72 @@ class GeobricksQgisPluginWorldBank:
             processed_layers = processed_layers+1
             self.dlg.progressBar.setValue(int((float(processed_layers)/float(total)) *100))
 
-        # print layers
-        # print len(layers)
+        # commit changed on tmp layer
+        tmp_layer.commitChanges()
+
+        renderer = create_join_renderer(tmp_layer, 'value', 5,  QgsGraduatedSymbolRendererV2.Jenks)
+
+        print renderer
         for l in layers:
-            applyGraduatedSymbologyStandardMode(l, 'value', 5,  QgsGraduatedSymbolRendererV2.Jenks)
+            l.setRendererV2(renderer)
             QgsMapLayerRegistry.instance().addMapLayer(l)
 
         self.dlg.progressText.setText('Process Finished')
+     
 
+    def create_layer(self, tmp_layer, indicator, indicator_name, year):
+
+        tmp_data_provider = tmp_layer.dataProvider()
+        tmp_layer.startEditing()
+        tmp_feature = QgsFeature()
+
+        # get world bank data
+        data = get_world_bank_data(indicator, year)
+
+        # print data
+        layer_name = indicator_name + " (" + year + ")"
+        clean_layer_name = re.sub('\W+','_', indicator_name) + "_" + year
+
+        # creating output path
+        output_base_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "output")
+        if not os.path.exists(output_base_path):
+            os.mkdir(output_base_path)
+
+        # retrieving input shp
+        output_file = os.path.join(output_base_path, clean_layer_name + ".shp")
+        input_base_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "resources")
+
+        #copy resource file to output
+        resource_files = glob.glob(os.path.join(input_base_path, "ne_110m_admin_0_*"))
+        for resource_file in resource_files:
+            base, extension = os.path.splitext(resource_file)                      
+            copyfile(resource_file, os.path.join(output_base_path, clean_layer_name + extension))
+
+
+        # Editing output_file
+        print "Editing: " + output_file
+        layer = QgsVectorLayer(output_file, layer_name, "ogr")
+        layer.startEditing()
+
+        # TODO: add data check instead of the addedValue boolean?
+        addedValue = False
+        for feat in layer.getFeatures():  
+            if feat['iso_a2'] is not None:
+                for d in data[1]:
+                    code = d['country']['id']
+                    value = d['value']
+                    if code == feat['iso_a2']:
+                        if value:                            
+                            # TODO: automatize the index 63 of feat['iso_a2']
+                            layer.changeAttributeValue(feat.id(), 63 , float(value))
+                            tmp_feature.setAttributes([float(value)])
+                            # TODO add all togheter
+                            tmp_data_provider.addFeatures([tmp_feature])
+                            addedValue = True
+                            break
+        
+        layer.commitChanges()
+        return layer, addedValue
 
     def update_indicator(self):
         self.dlg.cbIndicator.clear()
@@ -461,15 +471,20 @@ def validatedDefaultSymbol( geometryType ):
     return symbol
 
 
-def applyGraduatedSymbologyStandardMode(layer, field, classes, mode):
-    # symbol = validatedDefaultSymbol( layer.geometryType() )
-    # symbol = QgsFillSymbolV2()
+def create_join_renderer(layer, field, classes, mode, color='Blues'):
     symbol = QgsSymbolV2.defaultSymbol(layer.geometryType())
     style = QgsStyleV2().defaultStyle()
-    colorRamp = style.colorRampRef(u'Blues')
-    # print colorRamp
-    #colorRamp = QgsVectorGradientColorRampV2.create({'color1':'255,0,0,255', 'color2':'0,0,255,255','stops':'0.25;255,255,0,255:0.50;0,255,0,255:0.75;0,255,255,255'})
-    #print colorRamp
+    colorRamp = style.colorRampRef(color)
     renderer = QgsGraduatedSymbolRendererV2.createRenderer(layer, field, classes, mode, symbol, colorRamp)
-    layer.setRendererV2(renderer)
+    return renderer
 
+
+def get_world_bank_data(indicator, year):
+    request = 'http://api.worldbank.org/countries/all/indicators/' + indicator + '?date=' + year + '&format=json&per_page=10000'
+    req = urllib2.Request(request)
+    response = urllib2.urlopen(req)
+    json_data = response.read()
+    if json_data:
+        return json.loads(json_data)
+    else:
+        return None
