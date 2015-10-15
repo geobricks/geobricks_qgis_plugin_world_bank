@@ -2,3 +2,4 @@
 /output/
 *.ui~
 *.ui.autosave
+*.pyc
