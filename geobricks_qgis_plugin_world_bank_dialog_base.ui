@@ -6,34 +6,18 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>407</width>
-    <height>405</height>
+    <width>393</width>
+    <height>289</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>wb</string>
+   <string>World Bank API Plugin</string>
   </property>
-  <widget class="QDialogButtonBox" name="button_box">
-   <property name="geometry">
-    <rect>
-     <x>120</x>
-     <y>350</y>
-     <width>271</width>
-     <height>32</height>
-    </rect>
-   </property>
-   <property name="orientation">
-    <enum>Qt::Horizontal</enum>
-   </property>
-   <property name="standardButtons">
-    <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
-   </property>
-  </widget>
   <widget class="QComboBox" name="cbIndicator">
    <property name="geometry">
     <rect>
-     <x>20</x>
-     <y>120</y>
+     <x>10</x>
+     <y>110</y>
      <width>371</width>
      <height>27</height>
     </rect>
@@ -42,8 +26,8 @@
   <widget class="QComboBox" name="cbFromYear">
    <property name="geometry">
     <rect>
-     <x>20</x>
-     <y>190</y>
+     <x>10</x>
+     <y>170</y>
      <width>161</width>
      <height>27</height>
     </rect>
@@ -52,8 +36,8 @@
   <widget class="QComboBox" name="cbToYear">
    <property name="geometry">
     <rect>
-     <x>250</x>
-     <y>190</y>
+     <x>240</x>
+     <y>170</y>
      <width>141</width>
      <height>27</height>
     </rect>
@@ -62,8 +46,8 @@
   <widget class="QLabel" name="label">
    <property name="geometry">
     <rect>
-     <x>20</x>
-     <y>90</y>
+     <x>10</x>
+     <y>80</y>
      <width>191</width>
      <height>31</height>
     </rect>
@@ -75,8 +59,8 @@
   <widget class="QLabel" name="label_2">
    <property name="geometry">
     <rect>
-     <x>20</x>
-     <y>170</y>
+     <x>10</x>
+     <y>150</y>
      <width>81</width>
      <height>21</height>
     </rect>
@@ -88,8 +72,8 @@
   <widget class="QLabel" name="label_3">
    <property name="geometry">
     <rect>
-     <x>250</x>
-     <y>170</y>
+     <x>240</x>
+     <y>150</y>
      <width>81</width>
      <height>21</height>
     </rect>
@@ -101,35 +85,22 @@
   <widget class="QProgressBar" name="progressBar">
    <property name="geometry">
     <rect>
-     <x>20</x>
-     <y>270</y>
-     <width>371</width>
-     <height>23</height>
+     <x>10</x>
+     <y>252</y>
+     <width>191</width>
+     <height>21</height>
     </rect>
    </property>
    <property name="value">
     <number>0</number>
    </property>
   </widget>
-  <widget class="QPushButton" name="createLayers">
-   <property name="geometry">
-    <rect>
-     <x>280</x>
-     <y>300</y>
-     <width>111</width>
-     <height>27</height>
-    </rect>
-   </property>
-   <property name="text">
-    <string>Create Layers</string>
-   </property>
-  </widget>
   <widget class="QLabel" name="progressText">
    <property name="geometry">
     <rect>
-     <x>20</x>
-     <y>250</y>
-     <width>311</width>
+     <x>10</x>
+     <y>230</y>
+     <width>371</width>
      <height>17</height>
     </rect>
    </property>
@@ -140,8 +111,8 @@
   <widget class="QComboBox" name="cbSource">
    <property name="geometry">
     <rect>
-     <x>20</x>
-     <y>50</y>
+     <x>10</x>
+     <y>40</y>
      <width>371</width>
      <height>27</height>
     </rect>
@@ -150,8 +121,8 @@
   <widget class="QLabel" name="label_4">
    <property name="geometry">
     <rect>
-     <x>20</x>
-     <y>20</y>
+     <x>10</x>
+     <y>10</y>
      <width>191</width>
      <height>31</height>
     </rect>
@@ -160,40 +131,39 @@
     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:16pt;&quot;&gt;Select a Source&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
    </property>
   </widget>
+  <widget class="QDialogButtonBox" name="buttonBox">
+   <property name="geometry">
+    <rect>
+     <x>210</x>
+     <y>250</y>
+     <width>176</width>
+     <height>27</height>
+    </rect>
+   </property>
+   <property name="standardButtons">
+    <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+   </property>
+  </widget>
+  <widget class="QRadioButton" name="radioButton">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>200</y>
+     <width>161</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Add layers to canvas</string>
+   </property>
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+  </widget>
  </widget>
  <resources/>
- <connections>
-  <connection>
-   <sender>button_box</sender>
-   <signal>rejected()</signal>
-   <receiver>GeobricksQgisPluginWorldBankDialogBase</receiver>
-   <slot>reject()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>20</x>
-     <y>20</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>20</x>
-     <y>20</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>button_box</sender>
-   <signal>accepted()</signal>
-   <receiver>GeobricksQgisPluginWorldBankDialogBase</receiver>
-   <slot>accept()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>20</x>
-     <y>20</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>20</x>
-     <y>20</y>
-    </hint>
-   </hints>
-  </connection>
- </connections>
+ <connections/>
 </ui>

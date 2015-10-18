@@ -27,17 +27,20 @@ import json
 from shutil import copyfile
 
 # TODO: check if all imports are needed
-from qgis.core import QgsFeature, QgsField, QgsStyleV2, QgsVectorGradientColorRampV2, QgsVectorLayer, QgsMapLayerRegistry, QgsGraduatedSymbolRendererV2, QgsSymbolV2,  QgsRendererRangeV2
+from qgis.core import QgsRendererRangeV2LabelFormat, QgsMessageLog, QgsFeature, QgsField, QgsStyleV2, QgsVectorGradientColorRampV2, QgsVectorLayer, QgsMapLayerRegistry, QgsGraduatedSymbolRendererV2, QgsSymbolV2,  QgsRendererRangeV2
 from PyQt4.QtCore import *
 from PyQt4 import QtCore
 # from PyQt4.QtCore import QSettings, QTranslator, qVersion, QCoreApplication
-from PyQt4.QtGui import QAction, QIcon
+from PyQt4.QtGui import QAction, QIcon, QSizePolicy
 
 # Initialize Qt resources from file resources.py
 import resources
 # Import the code for the dialog
 from geobricks_qgis_plugin_world_bank_dialog import GeobricksQgisPluginWorldBankDialog
 import os.path
+
+from PyQt4.QtGui import QProgressBar
+from qgis.gui import QgsMessageBar
 
 
 class GeobricksQgisPluginWorldBank:
@@ -81,6 +84,11 @@ class GeobricksQgisPluginWorldBank:
 
         # TODO: check if there is a better way to handle inizialition
         self.initialized = False
+
+        # ID used for the messagebar 
+        self.QGSMESSAGEBAR_ID = 'GeobricksWorldBankPlugin'
+
+
 
     # noinspection PyMethodMayBeStatic
     def tr(self, message):
@@ -181,7 +189,6 @@ class GeobricksQgisPluginWorldBank:
             callback=self.run,
             parent=self.iface.mainWindow())
 
-
     def unload(self):
         """Removes the plugin menu item and icon from QGIS GUI."""
         for action in self.actions:
@@ -193,37 +200,39 @@ class GeobricksQgisPluginWorldBank:
         del self.toolbar
 
     def process_layers(self):
-        print "PROCESSING LAYERS..."
 
         processed_layers = 0
         self.dlg.progressBar.setValue(processed_layers)
         self.dlg.progressText.setText('Fetching Data from the World Bank')
+        # self.iface.messageBar().pushMessage("World Bank Plugin", 'Fetching Data from the World Bank', level=QgsMessageBar.INFO)
 
         indicator_name = self.dlg.cbIndicator.currentText()
         indicator = self.indicators[indicator_name]
-        #print indicator
 
         fromYear = int(self.dlg.cbFromYear.currentText())
         toYear = int(self.dlg.cbToYear.currentText()) + 1
-        print toYear, fromYear
-
         total = toYear - fromYear
 
-        print total
-
         layers = []
+        layers_not_available = []
 
         # create tmp layer
-        tmp_layer = QgsVectorLayer("Polygon", "tmp", "memory") 
+        tmp_layer = QgsVectorLayer("Polygon?crs=EPSG:4326", "tmp", "memory") 
         tmp_data_provider = tmp_layer.dataProvider()
+
 
         # add fields
         tmp_data_provider.addAttributes([QgsField("value", QVariant.Double)])
 
         for year in range(fromYear, toYear):
             year = str(year)
-            print year
-            self.dlg.progressText.setText('Processing: ' + year + ' '+ indicator_name)
+            layer_name = year + ' '+ indicator_name
+
+            # QgsMessageLog('processing ' + layer_name) 
+            QgsMessageLog.logMessage(layer_name, self.QGSMESSAGEBAR_ID, QgsMessageLog.INFO)
+            self.dlg.progressText.setText('Processing: ' + layer_name)
+            # self.iface.messageBar().pushMessage("Processing", year + ' '+ indicator_name, level=QgsMessageBar.INFO)
+
 
             #req = urllib2.Request('http://api.worldbank.org/countries/indicators/1.0.HCount.1.25usd?per_page=100&date=2008:2008&format=json')
             #req = urllib2.Request('http://api.worldbank.org/countries/indicators/NY.GDP.MKTP.CD?date=2013&format=json&per_page=10000')
@@ -239,10 +248,14 @@ class GeobricksQgisPluginWorldBank:
                 else:
                     # TODO: give a message to the user. something like "data are not available for this year"
                     print "WARN: there are no data available for" + str(year)
-                    # print data 
+                    # self.iface.messageBar().pushMessage("No data avaiable for", layer_name, level=QgsMessageBar.WARNING)
+                    layers_not_available.append(year)
 
             except Exception, e:
-                print e
+                # print e
+                layers_not_available.append(year)
+                # self.iface.messageBar().pushMessage("No data avaiable for", layer_name, level=QgsMessageBar.WARNING)
+
 
             # changing progress bar value  
             processed_layers = processed_layers+1
@@ -253,12 +266,18 @@ class GeobricksQgisPluginWorldBank:
 
         renderer = create_join_renderer(tmp_layer, 'value', 5,  QgsGraduatedSymbolRendererV2.Jenks)
 
-        print renderer
         for l in layers:
             l.setRendererV2(renderer)
             QgsMapLayerRegistry.instance().addMapLayer(l)
+            # legend = self.iface.legendInterface()  # access the legend
+            # legend.setLayerVisible(l, False)  # hide the layer
 
         self.dlg.progressText.setText('Process Finished')
+
+        if len(layers_not_available) > 0:
+            self.iface.messageBar().pushMessage(indicator_name, 'Data are not available for ' + ', '.join(layers_not_available) + '', level=QgsMessageBar.WARNING)
+
+        self.dlg.close()
      
 
     def create_layer(self, tmp_layer, indicator, indicator_name, year):
@@ -320,17 +339,13 @@ class GeobricksQgisPluginWorldBank:
         source_name = self.dlg.cbSource.currentText()
         source_id = self.sources[source_name]
 
-        print source_id
+        # get World Bank data indicators by source ID
+        data = get_world_bank_indicators(source_id)
 
-        req = urllib2.Request('http://api.worldbank.org/source/' + str(source_id) + '/indicators?per_page=1500&format=json')
-        print req
-        response = urllib2.urlopen(req)
-        json_data = response.read()
-        data = json.loads(json_data)
         # TODO cache codes
         values = []
         self.indicators = {}
-        for d in data[1]:
+        for d in data:
             self.indicators[d['name']] = d['id']
             values.append(d['name'])
 
@@ -340,7 +355,23 @@ class GeobricksQgisPluginWorldBank:
 
     def run(self):
 
+        # if the interface is initiated
+        if self.initialized:
+            self.dlg.progressText.setText('')
+            self.dlg.progressBar.setValue(0)
+
+
         if not self.initialized:
+
+
+
+            # msgBar = self.iface.messageBar()
+
+            # pb = QProgressBar( msgBar )
+            # msgBar.pushWidget( pb, QgsMessageBar.INFO, 5 )
+
+            # msg = msgBar.createMessage( u'Hello World' )
+            # msgBar.pushWidget( msg, QgsMessageBar.WARNING, 5 )
 
             # dirty check if interface was already initialized
             self.initialized = True
@@ -443,20 +474,26 @@ class GeobricksQgisPluginWorldBank:
             self.dlg.cbFromYear.addItems(values)
             self.dlg.cbToYear.addItems(values)
 
-            QtCore.QObject.connect(self.dlg.createLayers, QtCore.SIGNAL("clicked()"), self.process_layers)
+            # QtCore.QObject.connect(self.dlg.createLayers, QtCore.SIGNAL("clicked()"), self.process_layers)
+
+            # on Ok and Cancel click
+            self.dlg.buttonBox.accepted.connect(self.process_layers)
+            self.dlg.buttonBox.rejected.connect(self.dlg.close)
 
 
 
         """Run method that performs all the real work"""
         # show the dialog
         self.dlg.show()
-        # Run the dialog event loop
-        result = self.dlg.exec_()
-        # See if OK was pressed
-        if result:
-            # Do something useful here - delete the line containing pass and
-            # substitute with your code.
-            pass
+
+        # print self.dlg.buttonBox
+        # # Run the dialog event loop
+        # result = self.dlg.exec_()
+        # # See if OK was pressed
+        # if result:
+        #     # Do something useful here - delete the line containing pass and
+        #     # substitute with your code.
+        #     pass
 
 
 def validatedDefaultSymbol( geometryType ):
@@ -476,7 +513,17 @@ def create_join_renderer(layer, field, classes, mode, color='Blues'):
     style = QgsStyleV2().defaultStyle()
     colorRamp = style.colorRampRef(color)
     renderer = QgsGraduatedSymbolRendererV2.createRenderer(layer, field, classes, mode, symbol, colorRamp)
+    label_format = create_join_label_format(2)
+    renderer.setLabelFormat(label_format)
     return renderer
+
+def create_join_label_format(precision):
+    format = QgsRendererRangeV2LabelFormat()
+    template="%1 - %2 metres"
+    format.setFormat(template)
+    format.setPrecision(precision)
+    format.setTrimTrailingZeroes(True)
+    return format
 
 
 def get_world_bank_data(indicator, year):
@@ -488,3 +535,11 @@ def get_world_bank_data(indicator, year):
         return json.loads(json_data)
     else:
         return None
+
+
+def get_world_bank_indicators(source_id):
+    req = urllib2.Request('http://api.worldbank.org/source/' + str(source_id) + '/indicators?per_page=1500&format=json')
+    response = urllib2.urlopen(req)
+    json_data = response.read()
+    return json.loads(json_data)[1]
+
