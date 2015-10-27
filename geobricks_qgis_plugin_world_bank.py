@@ -29,9 +29,7 @@ from shutil import copyfile
 # TODO: check if all imports are needed
 from qgis.core import QgsRendererRangeV2LabelFormat, QgsMessageLog, QgsFeature, QgsField, QgsStyleV2, QgsVectorGradientColorRampV2, QgsVectorLayer, QgsMapLayerRegistry, QgsGraduatedSymbolRendererV2, QgsSymbolV2,  QgsRendererRangeV2
 from PyQt4.QtCore import *
-from PyQt4 import QtCore
-# from PyQt4.QtCore import QSettings, QTranslator, qVersion, QCoreApplication
-from PyQt4.QtGui import QAction, QIcon, QSizePolicy
+from PyQt4.QtGui import QAction, QIcon, QFileDialog, QMessageBox
 
 # Initialize Qt resources from file resources.py
 import resources
@@ -205,6 +203,10 @@ class GeobricksQgisPluginWorldBank:
         self.dlg.progressBar.setValue(processed_layers)
         self.dlg.progressText.setText('Fetching Data from the World Bank')
 
+        download_path = self.dlg.download_path.text()
+        if download_path is None or len(download_path) == 0:
+            QMessageBox.critical(None, self.tr('Error'), self.tr('Please insert the download folder'))
+
         indicator_name = self.dlg.cbIndicator.currentText()
         indicator = self.indicators[indicator_name]
 
@@ -224,7 +226,7 @@ class GeobricksQgisPluginWorldBank:
 
         for year in range(from_year, to_year):
             year = str(year)
-            layer_name = year + ' '+ indicator_name
+            layer_name = year + ' ' + indicator_name
 
             # QgsMessageLog('processing ' + layer_name) 
             QgsMessageLog.logMessage(layer_name, self.QGSMESSAGEBAR_ID, QgsMessageLog.INFO)
@@ -233,7 +235,7 @@ class GeobricksQgisPluginWorldBank:
             try:
 
                 # Create Layer                
-                layer, addedValue = create_layer(tmp_layer, indicator, indicator_name, year)
+                layer, addedValue = create_layer(download_path, tmp_layer, indicator, indicator_name, year)
 
                 # check if the layer has been changed
                 if addedValue:                
@@ -255,10 +257,11 @@ class GeobricksQgisPluginWorldBank:
 
         renderer = create_join_renderer(tmp_layer, 'value', 5,  QgsGraduatedSymbolRendererV2.Jenks)
 
-        for index, l in enumerate(layers):
-            l.setRendererV2(renderer)
-            QgsMapLayerRegistry.instance().addMapLayer(l)
-            self.iface.legendInterface().setLayerVisible(l, (index == len(layers)-1))
+        if self.dlg.open_in_qgis.isChecked():
+            for index, l in enumerate(layers):
+                l.setRendererV2(renderer)
+                QgsMapLayerRegistry.instance().addMapLayer(l)
+                self.iface.legendInterface().setLayerVisible(l, (index == len(layers)-1))
 
         self.iface.mapCanvas().refresh()
 
@@ -269,7 +272,7 @@ class GeobricksQgisPluginWorldBank:
 
         self.dlg.close()
 
-    def update_indicator(self):
+    def update_indicators(self):
         self.dlg.cbIndicator.clear()
         source_name = self.dlg.cbSource.currentText()
         source_id = self.sources[source_name]
@@ -319,8 +322,8 @@ class GeobricksQgisPluginWorldBank:
             }
         ]
 
-        values = []
         self.sources = {}
+        values = []
         for d in data:
             self.sources[d['name']] = d['id']
             values.append(d['name'])
@@ -336,6 +339,10 @@ class GeobricksQgisPluginWorldBank:
         self.dlg.cbFromYear.addItems(values)
         self.dlg.cbToYear.addItems(values)
 
+    def select_output_file(self):
+        filename = QFileDialog.getExistingDirectory(self.dlg, "Select Directory")
+        self.dlg.download_path.setText(filename)
+
     def run(self):
 
         # if the interface is initiated
@@ -347,6 +354,7 @@ class GeobricksQgisPluginWorldBank:
             # dirty check if interface was already initialized
             self.initialized = True
 
+            # removing tmp old layers
             self.remove_tmp_path()
 
             # initialize selectors
@@ -354,8 +362,11 @@ class GeobricksQgisPluginWorldBank:
             self.initialize_years()
 
             # call first indicator
-            self.update_indicator()
-            self.dlg.cbSource.currentIndexChanged.connect(self.update_indicator)
+            self.update_indicators()
+            self.dlg.cbSource.currentIndexChanged.connect(self.update_indicators)
+
+            # add select download folder
+            self.dlg.pushButton.clicked.connect(self.select_output_file)
 
             # on OK and Cancel click
             self.dlg.buttonBox.accepted.connect(self.process_layers)
@@ -365,7 +376,7 @@ class GeobricksQgisPluginWorldBank:
         self.dlg.show()
 
 
-def create_layer(tmp_layer, indicator, indicator_name, year):
+def create_layer(download_path, tmp_layer, indicator, indicator_name, year):
 
     tmp_data_provider = tmp_layer.dataProvider()
     tmp_layer.startEditing()
@@ -376,15 +387,16 @@ def create_layer(tmp_layer, indicator, indicator_name, year):
 
     # getting layer_name
     layer_name = indicator_name + " (" + year + ")"
-    clean_layer_name = re.sub('\W+','_', indicator_name) + "_" + year
+    clean_layer_name = re.sub('\W+', '_', indicator_name) + "_" + year
 
     # creating output path
-    output_base_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "output")
-    if not os.path.exists(output_base_path):
-        os.mkdir(output_base_path)
+    # output_base_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "output")
+    # if not os.path.exists(output_base_path):
+    #     os.mkdir(output_base_path)
 
     # retrieving input shp
-    output_file = os.path.join(output_base_path, clean_layer_name + ".shp")
+    # output_file = os.path.join(output_base_path, clean_layer_name + ".shp")
+    output_file = os.path.join(download_path, clean_layer_name + ".shp")
     input_base_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "resources")
 
     # copy resource file to output
@@ -392,7 +404,7 @@ def create_layer(tmp_layer, indicator, indicator_name, year):
     resource_files = glob.glob(os.path.join(input_base_path, "ne_110m_admin_0_*"))
     for resource_file in resource_files:
         base, extension = os.path.splitext(resource_file)
-        copyfile(resource_file, os.path.join(output_base_path, clean_layer_name + extension))
+        copyfile(resource_file, os.path.join(download_path, clean_layer_name + extension))
 
     # Editing output_file
     layer = QgsVectorLayer(output_file, layer_name, "ogr")
@@ -418,6 +430,7 @@ def create_layer(tmp_layer, indicator, indicator_name, year):
     layer.commitChanges()
     return layer, addedValue
 
+
 def create_join_renderer(layer, field, classes, mode, color='Blues'):
     symbol = QgsSymbolV2.defaultSymbol(layer.geometryType())
     style = QgsStyleV2().defaultStyle()
@@ -426,6 +439,7 @@ def create_join_renderer(layer, field, classes, mode, color='Blues'):
     label_format = create_join_label_format(2)
     renderer.setLabelFormat(label_format)
     return renderer
+
 
 def create_join_label_format(precision):
     format = QgsRendererRangeV2LabelFormat()
@@ -441,6 +455,7 @@ def get_world_bank_data(indicator, year):
     req = urllib2.Request(request)
     response = urllib2.urlopen(req)
     json_data = response.read()
+    print request
     if json_data:
         return json.loads(json_data)
     else:
