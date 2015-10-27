@@ -33,12 +33,11 @@ from PyQt4.QtGui import QAction, QIcon, QFileDialog, QMessageBox
 
 # Initialize Qt resources from file resources.py
 import resources
-# Import the code for the dialog
 from geobricks_qgis_plugin_world_bank_dialog import GeobricksQgisPluginWorldBankDialog
 import os.path
-
-from PyQt4.QtGui import QProgressBar
 from qgis.gui import QgsMessageBar
+
+from geobricks_world_bank_connector import get_data_by_year, get_world_bank_data, get_world_bank_indicators
 
 
 class GeobricksQgisPluginWorldBank:
@@ -199,78 +198,91 @@ class GeobricksQgisPluginWorldBank:
 
     def process_layers(self):
 
-        processed_layers = 0
-        self.dlg.progressBar.setValue(processed_layers)
-        self.dlg.progressText.setText('Fetching Data from the World Bank')
-
         download_path = self.dlg.download_path.text()
+
         if download_path is None or len(download_path) == 0:
             QMessageBox.critical(None, self.tr('Error'), self.tr('Please insert the download folder'))
 
-        indicator_name = self.dlg.cbIndicator.currentText()
-        indicator = self.indicators[indicator_name]
+        else:
+            processed_layers = 0
+            self.dlg.progressBar.setValue(processed_layers)
+            self.dlg.progressText.setText('Fetching Data from the World Bank')
 
-        from_year = int(self.dlg.cbFromYear.currentText())
-        to_year = int(self.dlg.cbToYear.currentText()) + 1
-        total_years = from_year - to_year
+            indicator_name = self.dlg.cbIndicator.currentText()
+            indicator = self.indicators[indicator_name]
 
-        layers = []
-        layers_not_available = []
+            from_year = int(self.dlg.cbFromYear.currentText())
+            to_year = int(self.dlg.cbToYear.currentText()) + 1
+            total_years = to_year - from_year
 
-        # create tmp layer
-        tmp_layer = QgsVectorLayer("Polygon?crs=EPSG:4326", "tmp", "memory")
-        tmp_data_provider = tmp_layer.dataProvider()
+            layers = []
+            layers_not_available = []
 
-        # add fields
-        tmp_data_provider.addAttributes([QgsField("value", QVariant.Double)])
+            # create tmp layer
+            tmp_layer = QgsVectorLayer("Polygon?crs=EPSG:4326", "tmp", "memory")
+            tmp_data_provider = tmp_layer.dataProvider()
 
-        for year in range(from_year, to_year):
-            year = str(year)
-            layer_name = year + ' ' + indicator_name
+            # add fields
+            tmp_data_provider.addAttributes([QgsField("value", QVariant.Double)])
 
-            # QgsMessageLog('processing ' + layer_name) 
-            QgsMessageLog.logMessage(layer_name, self.QGSMESSAGEBAR_ID, QgsMessageLog.INFO)
-            self.dlg.progressText.setText('Processing: ' + layer_name)
+            data = get_world_bank_data(indicator, str(from_year), str(to_year))
 
-            try:
+            # create layer by year
+            for year in range(from_year, to_year):
 
-                # Create Layer                
-                layer, addedValue = create_layer(download_path, tmp_layer, indicator, indicator_name, year)
+                year = str(year)
+                data_yearly = get_data_by_year(data, year)
 
-                # check if the layer has been changed
-                if addedValue:                
-                    layers.append(layer)
-                else:
-                    # TODO: give a message to the user. something like "data are not available for this year"
-                    QgsMessageLog.logMessage("WARN: there are no data available for " + str(year), self.QGSMESSAGEBAR_ID, QgsMessageLog.WARNING)
+                if len(data_yearly) == 0:
                     layers_not_available.append(year)
 
-            except Exception, e:
-                layers_not_available.append(year)
+                else:
 
-            # changing progress bar value  
-            processed_layers += 1
-            self.dlg.progressBar.setValue(int((float(processed_layers)/float(total_years)) * 100))
+                    # process layer
+                    layer_name = year + ' ' + indicator_name
+                    QgsMessageLog.logMessage(layer_name, self.QGSMESSAGEBAR_ID, QgsMessageLog.INFO)
+                    self.dlg.progressText.setText('Processing: ' + layer_name)
 
-        # commit changed on tmp layer
-        tmp_layer.commitChanges()
+                    try:
 
-        renderer = create_join_renderer(tmp_layer, 'value', 5,  QgsGraduatedSymbolRendererV2.Jenks)
+                        # Create Layer
+                        layer, addedValue = create_layer(download_path, tmp_layer, indicator, indicator_name, data_yearly, year)
 
-        if self.dlg.open_in_qgis.isChecked():
-            for index, l in enumerate(layers):
-                l.setRendererV2(renderer)
-                QgsMapLayerRegistry.instance().addMapLayer(l)
-                self.iface.legendInterface().setLayerVisible(l, (index == len(layers)-1))
+                        # check if the layer has been changed
+                        if addedValue:
+                            layers.append(layer)
 
-        self.iface.mapCanvas().refresh()
+                        else:
+                            # TODO: give a message to the user. something like "data are not available for this year"
+                            QgsMessageLog.logMessage("WARN: there are no data available for " + str(year), self.QGSMESSAGEBAR_ID, QgsMessageLog.WARNING)
+                            layers_not_available.append(year)
 
-        self.dlg.progressText.setText('Process Finished')
+                    except Exception, e:
+                        layers_not_available.append(year)
 
-        if len(layers_not_available) > 0:
-            self.iface.messageBar().pushMessage(indicator_name, 'Data are not available for ' + ', '.join(layers_not_available) + '', level=QgsMessageBar.WARNING)
+                processed_layers = processed_layers + 1
+                print processed_layers, total_years
+                self.dlg.progressBar.setValue(int((float(processed_layers) / float(total_years)) * 100))
 
-        self.dlg.close()
+            # commit changed on tmp layer
+            tmp_layer.commitChanges()
+
+            renderer = create_join_renderer(tmp_layer, 'value', 5,  QgsGraduatedSymbolRendererV2.Jenks)
+
+            if self.dlg.open_in_qgis.isChecked():
+                for index, l in enumerate(layers):
+                    l.setRendererV2(renderer)
+                    QgsMapLayerRegistry.instance().addMapLayer(l)
+                    self.iface.legendInterface().setLayerVisible(l, (index == len(layers)-1))
+
+            self.iface.mapCanvas().refresh()
+
+            self.dlg.progressText.setText('Process Finished')
+
+            if len(layers_not_available) > 0:
+                self.iface.messageBar().pushMessage(indicator_name, 'Data are not available for ' + ', '.join(layers_not_available) + '', level=QgsMessageBar.WARNING)
+
+            #self.dlg.close()
 
     def update_indicators(self):
         self.dlg.cbIndicator.clear()
@@ -376,14 +388,14 @@ class GeobricksQgisPluginWorldBank:
         self.dlg.show()
 
 
-def create_layer(download_path, tmp_layer, indicator, indicator_name, year):
+def create_layer(download_path, tmp_layer, indicator, indicator_name, data, year):
 
     tmp_data_provider = tmp_layer.dataProvider()
     tmp_layer.startEditing()
     tmp_feature = QgsFeature()
 
     # get world bank data
-    data = get_world_bank_data(indicator, year)
+    # data = get_world_bank_data(indicator, year)
 
     # getting layer_name
     layer_name = indicator_name + " (" + year + ")"
@@ -414,7 +426,7 @@ def create_layer(download_path, tmp_layer, indicator, indicator_name, year):
     addedValue = False
     for feat in layer.getFeatures():
         if feat['iso_a2'] is not None:
-            for d in data[1]:
+            for d in data:
                 code = d['country']['id']
                 value = d['value']
                 if code == feat['iso_a2']:
@@ -450,21 +462,5 @@ def create_join_label_format(precision):
     return format
 
 
-def get_world_bank_data(indicator, year):
-    request = 'http://api.worldbank.org/countries/all/indicators/' + indicator + '?date=' + year + '&format=json&per_page=10000'
-    req = urllib2.Request(request)
-    response = urllib2.urlopen(req)
-    json_data = response.read()
-    print request
-    if json_data:
-        return json.loads(json_data)
-    else:
-        return None
 
-
-def get_world_bank_indicators(source_id):
-    req = urllib2.Request('http://api.worldbank.org/source/' + str(source_id) + '/indicators?per_page=1500&format=json')
-    response = urllib2.urlopen(req)
-    json_data = response.read()
-    return json.loads(json_data)[1]
 
