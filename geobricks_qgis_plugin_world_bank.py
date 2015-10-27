@@ -204,26 +204,25 @@ class GeobricksQgisPluginWorldBank:
         processed_layers = 0
         self.dlg.progressBar.setValue(processed_layers)
         self.dlg.progressText.setText('Fetching Data from the World Bank')
-        # self.iface.messageBar().pushMessage("World Bank Plugin", 'Fetching Data from the World Bank', level=QgsMessageBar.INFO)
 
         indicator_name = self.dlg.cbIndicator.currentText()
         indicator = self.indicators[indicator_name]
 
-        fromYear = int(self.dlg.cbFromYear.currentText())
-        toYear = int(self.dlg.cbToYear.currentText()) + 1
-        total = toYear - fromYear
+        from_year = int(self.dlg.cbFromYear.currentText())
+        to_year = int(self.dlg.cbToYear.currentText()) + 1
+        total_years = from_year - to_year
 
         layers = []
         layers_not_available = []
 
         # create tmp layer
-        tmp_layer = QgsVectorLayer("Polygon?crs=EPSG:4326", "tmp", "memory") 
+        tmp_layer = QgsVectorLayer("Polygon?crs=EPSG:4326", "tmp", "memory")
         tmp_data_provider = tmp_layer.dataProvider()
 
         # add fields
         tmp_data_provider.addAttributes([QgsField("value", QVariant.Double)])
 
-        for year in range(fromYear, toYear):
+        for year in range(from_year, to_year):
             year = str(year)
             layer_name = year + ' '+ indicator_name
 
@@ -234,24 +233,22 @@ class GeobricksQgisPluginWorldBank:
             try:
 
                 # Create Layer                
-                layer, addedValue = self.create_layer(tmp_layer, indicator, indicator_name, year)
+                layer, addedValue = create_layer(tmp_layer, indicator, indicator_name, year)
 
                 # check if the layer has been changed
                 if addedValue:                
                     layers.append(layer)
                 else:
                     # TODO: give a message to the user. something like "data are not available for this year"
-                    print "WARN: there are no data available for" + str(year)
-                    # self.iface.messageBar().pushMessage("No data avaiable for", layer_name, level=QgsMessageBar.WARNING)
+                    QgsMessageLog.logMessage("WARN: there are no data available for " + str(year), self.QGSMESSAGEBAR_ID, QgsMessageLog.WARNING)
                     layers_not_available.append(year)
 
             except Exception, e:
-                # print e
                 layers_not_available.append(year)
 
             # changing progress bar value  
-            processed_layers = processed_layers+1
-            self.dlg.progressBar.setValue(int((float(processed_layers)/float(total)) *100))
+            processed_layers += 1
+            self.dlg.progressBar.setValue(int((float(processed_layers)/float(total_years)) * 100))
 
         # commit changed on tmp layer
         tmp_layer.commitChanges()
@@ -261,13 +258,9 @@ class GeobricksQgisPluginWorldBank:
         for index, l in enumerate(layers):
             l.setRendererV2(renderer)
             QgsMapLayerRegistry.instance().addMapLayer(l)
-            self.iface.legendInterface().setLayerVisible(l, (index == len(layers) -1))
-
+            self.iface.legendInterface().setLayerVisible(l, (index == len(layers)-1))
 
         self.iface.mapCanvas().refresh()
-
-            # legend = self.iface.legendInterface()  # access the legend
-            # legend.setLayerVisible(l, False)  # hide the layer
 
         self.dlg.progressText.setText('Process Finished')
 
@@ -275,61 +268,6 @@ class GeobricksQgisPluginWorldBank:
             self.iface.messageBar().pushMessage(indicator_name, 'Data are not available for ' + ', '.join(layers_not_available) + '', level=QgsMessageBar.WARNING)
 
         self.dlg.close()
-     
-
-    def create_layer(self, tmp_layer, indicator, indicator_name, year):
-
-        tmp_data_provider = tmp_layer.dataProvider()
-        tmp_layer.startEditing()
-        tmp_feature = QgsFeature()
-
-        # get world bank data
-        data = get_world_bank_data(indicator, year)
-
-        # print data
-        layer_name = indicator_name + " (" + year + ")"
-        clean_layer_name = re.sub('\W+','_', indicator_name) + "_" + year
-
-        # creating output path
-        output_base_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "output")
-        if not os.path.exists(output_base_path):
-            os.mkdir(output_base_path)
-
-        # retrieving input shp
-        output_file = os.path.join(output_base_path, clean_layer_name + ".shp")
-        input_base_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "resources")
-
-        #copy resource file to output
-        resource_files = glob.glob(os.path.join(input_base_path, "ne_110m_admin_0_*"))
-        for resource_file in resource_files:
-            base, extension = os.path.splitext(resource_file)                      
-            copyfile(resource_file, os.path.join(output_base_path, clean_layer_name + extension))
-
-
-        # Editing output_file
-        print "Editing: " + output_file
-        layer = QgsVectorLayer(output_file, layer_name, "ogr")
-        layer.startEditing()
-
-        # TODO: add data check instead of the addedValue boolean?
-        addedValue = False
-        for feat in layer.getFeatures():  
-            if feat['iso_a2'] is not None:
-                for d in data[1]:
-                    code = d['country']['id']
-                    value = d['value']
-                    if code == feat['iso_a2']:
-                        if value:                            
-                            # TODO: automatize the index 63 of feat['iso_a2']
-                            layer.changeAttributeValue(feat.id(), 63 , float(value))
-                            tmp_feature.setAttributes([float(value)])
-                            # TODO add all togheter
-                            tmp_data_provider.addFeatures([tmp_feature])
-                            addedValue = True
-                            break
-        
-        layer.commitChanges()
-        return layer, addedValue
 
     def update_indicator(self):
         self.dlg.cbIndicator.clear()
@@ -339,7 +277,7 @@ class GeobricksQgisPluginWorldBank:
         # get World Bank data indicators by source ID
         data = get_world_bank_indicators(source_id)
 
-        # TODO cache codes
+        # cache codes
         values = []
         self.indicators = {}
         for d in data:
@@ -349,34 +287,16 @@ class GeobricksQgisPluginWorldBank:
         values.sort()
         self.dlg.cbIndicator.addItems(values)
 
+    def remove_tmp_path(self):
+        # TODO: move to a function the remove the old files in output folder
+        if os.path.exists(os.path.join(os.path.dirname(os.path.realpath(__file__)), "output")):
+            files = glob.glob(os.path.join(os.path.dirname(os.path.realpath(__file__)), "output", "*"))
+            for f in files:
+                os.remove(f)
 
-    def run(self):
-
-        # if the interface is initiated
-        if self.initialized:
-            self.dlg.progressText.setText('')
-            self.dlg.progressBar.setValue(0)
-
-
-        if not self.initialized:
-            # msgBar = self.iface.messageBar()
-
-            # pb = QProgressBar( msgBar )
-            # msgBar.pushWidget( pb, QgsMessageBar.INFO, 5 )
-
-            # msg = msgBar.createMessage( u'Hello World' )
-            # msgBar.pushWidget( msg, QgsMessageBar.WARNING, 5 )
-
-            # dirty check if interface was already initialized
-            self.initialized = True
-
-            # TODO: move to a function the remove the old files in output folder
-            if os.path.exists(os.path.join(os.path.dirname(os.path.realpath(__file__)), "output")):
-                files = glob.glob(os.path.join(os.path.dirname(os.path.realpath(__file__)), "output", "*"))
-                for f in files: 
-                    os.remove(f)
-
-            data = [
+    def initialize_sources(self):
+        # TODO: load sources dinamically
+        data = [
             {
                 'name': 'Doing Business',
                 'id': '1'
@@ -397,62 +317,106 @@ class GeobricksQgisPluginWorldBank:
                 'name': 'International Debt Statistics',
                 'id': '6'
             }
-            ]
+        ]
 
-            values = []
-            self.sources = {}
-            for d in data:
-                self.sources[d['name']] = d['id']
-                values.append(d['name'])
+        values = []
+        self.sources = {}
+        for d in data:
+            self.sources[d['name']] = d['id']
+            values.append(d['name'])
 
-            self.dlg.cbSource.addItems(values)
+        self.dlg.cbSource.addItems(values)
+
+    def initialize_years(self):
+        # TODO: load the years dinamically
+        values = []
+        for year in range(2014, 1980, -1):
+            values.append(str(year))
+
+        self.dlg.cbFromYear.addItems(values)
+        self.dlg.cbToYear.addItems(values)
+
+    def run(self):
+
+        # if the interface is initiated
+        if self.initialized:
+            self.dlg.progressText.setText('')
+            self.dlg.progressBar.setValue(0)
+
+        if not self.initialized:
+            # dirty check if interface was already initialized
+            self.initialized = True
+
+            self.remove_tmp_path()
+
+            # initialize selectors
+            self.initialize_sources()
+            self.initialize_years()
 
             # call first indicator
             self.update_indicator()
-
             self.dlg.cbSource.currentIndexChanged.connect(self.update_indicator)
 
-            # TODO: load the years dinamically
-            values = []
-            for year in range(2014, 1980, -1):
-                values.append(str(year))
-
-            self.dlg.cbFromYear.addItems(values)
-            self.dlg.cbToYear.addItems(values)
-
-            # QtCore.QObject.connect(self.dlg.createLayers, QtCore.SIGNAL("clicked()"), self.process_layers)
-
-            # on Ok and Cancel click
+            # on OK and Cancel click
             self.dlg.buttonBox.accepted.connect(self.process_layers)
             self.dlg.buttonBox.rejected.connect(self.dlg.close)
 
-
-
-        """Run method that performs all the real work"""
         # show the dialog
         self.dlg.show()
 
-        # print self.dlg.buttonBox
-        # # Run the dialog event loop
-        # result = self.dlg.exec_()
-        # # See if OK was pressed
-        # if result:
-        #     # Do something useful here - delete the line containing pass and
-        #     # substitute with your code.
-        #     pass
 
+def create_layer(tmp_layer, indicator, indicator_name, year):
 
-def validatedDefaultSymbol( geometryType ):
-    symbol = QgsSymbolV2.defaultSymbol( geometryType )
-    if symbol is None:
-        if geometryType == QGis.Point:
-            symbol = QgsMarkerSymbolV2()
-        elif geometryType == QGis.Line:
-            symbol =  QgsLineSymbolV2 ()
-        elif geometryType == QGis.Polygon:
-            symbol = QgsFillSymbolV2 ()
-    return symbol
+    tmp_data_provider = tmp_layer.dataProvider()
+    tmp_layer.startEditing()
+    tmp_feature = QgsFeature()
 
+    # get world bank data
+    data = get_world_bank_data(indicator, year)
+
+    # getting layer_name
+    layer_name = indicator_name + " (" + year + ")"
+    clean_layer_name = re.sub('\W+','_', indicator_name) + "_" + year
+
+    # creating output path
+    output_base_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "output")
+    if not os.path.exists(output_base_path):
+        os.mkdir(output_base_path)
+
+    # retrieving input shp
+    output_file = os.path.join(output_base_path, clean_layer_name + ".shp")
+    input_base_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "resources")
+
+    # copy resource file to output
+    # resource_files = glob.glob(os.path.join(input_base_path, "ne_110m_admin_0_*"))
+    resource_files = glob.glob(os.path.join(input_base_path, "ne_110m_admin_0_*"))
+    for resource_file in resource_files:
+        base, extension = os.path.splitext(resource_file)
+        copyfile(resource_file, os.path.join(output_base_path, clean_layer_name + extension))
+
+    # Editing output_file
+    layer = QgsVectorLayer(output_file, layer_name, "ogr")
+    layer.startEditing()
+
+    # TODO: add data check instead of the addedValue boolean?
+    addedValue = False
+    for feat in layer.getFeatures():
+        if feat['iso_a2'] is not None:
+            for d in data[1]:
+                code = d['country']['id']
+                value = d['value']
+                if code == feat['iso_a2']:
+                    if value:
+                        # TODO: automatize the index 5 of feat['iso_a2']
+                        layer.changeAttributeValue(feat.id(), 5, float(value))
+                        tmp_feature.setAttributes([float(value)])
+                        # TODO add all togheter
+                        tmp_data_provider.addFeatures([tmp_feature])
+                        addedValue = True
+                        break
+
+    layer.commitChanges()
+    return layer, addedValue
 
 def create_join_renderer(layer, field, classes, mode, color='Blues'):
     symbol = QgsSymbolV2.defaultSymbol(layer.geometryType())
