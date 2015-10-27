@@ -192,7 +192,7 @@ class GeobricksQgisPluginWorldBank:
         """Removes the plugin menu item and icon from QGIS GUI."""
         for action in self.actions:
             self.iface.removePluginMenu(
-                self.tr(u'&Geobricks Qgis Plugin WorldBank'),
+                self.tr(u'&Download Data'),
                 action)
             self.iface.removeToolBarIcon(action)
         # remove the toolbar
