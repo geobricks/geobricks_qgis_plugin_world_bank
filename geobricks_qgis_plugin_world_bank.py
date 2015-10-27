@@ -202,7 +202,7 @@ class GeobricksQgisPluginWorldBank:
 
         download_path = self.dlg.download_path.text()
 
-        if download_path is None or len(download_path) == 0:
+        if self.dlg.download_path.text() is None or len(self.dlg.download_path.text()) == 0:
             QMessageBox.critical(None, self.tr('Error'), self.tr('Please insert the download folder'))
 
         elif (int(self.dlg.cbToYear.currentText())) - int(self.dlg.cbFromYear.currentText()) < 0:
@@ -236,7 +236,7 @@ class GeobricksQgisPluginWorldBank:
             for year in range(from_year, to_year):
 
                 # process yearly data
-                self.process_yearly_data(download_path, tmp_layer, data, year, indicator, indicator_name, layers, layers_not_available):
+                self.process_yearly_data(download_path, tmp_layer, data, year, indicator, indicator_name, layers, layers_not_available)
 
                 # update procgress bar
                 processed_layers += 1
@@ -312,12 +312,11 @@ class GeobricksQgisPluginWorldBank:
         values.sort()
         self.dlg.cbIndicator.addItems(values)
 
-    def remove_tmp_path(self):
-        # TODO: move to a function the remove the old files in output folder
-        if os.path.exists(os.path.join(os.path.dirname(os.path.realpath(__file__)), "output")):
-            files = glob.glob(os.path.join(os.path.dirname(os.path.realpath(__file__)), "output", "*"))
-            for f in files:
-                os.remove(f)
+    # def remove_tmp_path(self):
+    #     if os.path.exists(os.path.join(os.path.dirname(os.path.realpath(__file__)), "output")):
+    #         files = glob.glob(os.path.join(os.path.dirname(os.path.realpath(__file__)), "output", "*"))
+    #         for f in files:
+    #             os.remove(f)
 
     def initialize_sources(self):
         # TODO: load sources dinamically
@@ -362,7 +361,7 @@ class GeobricksQgisPluginWorldBank:
         self.dlg.cbToYear.addItems(values)
 
     def select_output_file(self):
-        filename = QFileDialog.getExistingDirectory(self.dlg, "Select Directory")
+        filename = QFileDialog.getExistingDirectory(self.dlg, "Select Folder")
         self.dlg.download_path.setText(filename)
 
     def run(self):
@@ -377,7 +376,7 @@ class GeobricksQgisPluginWorldBank:
             self.initialized = True
 
             # removing tmp old layers
-            self.remove_tmp_path()
+            #self.remove_tmp_path()
 
             # initialize selectors
             self.initialize_sources()

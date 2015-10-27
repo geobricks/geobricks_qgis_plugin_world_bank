@@ -7,14 +7,14 @@
 # This file should be included when you package your plugin.# Mandatory items:
 
 [general]
-name=World Bank API (Geobricks)
+name=World Bank Data
 qgisMinimumVersion=2.0
-description=Plugin for Qgis 2.x. Creates thematic maps with World Bank data. 
+description=Download and creates thematic maps with World Bank data.
 version=0.1
-author=Simone Murzilli/GeoBricks
+author=Simone Murzilli/Geobricks
 email=simone.murzilli@gmail.com
 
-about=Plugin for Qgis 2.x. Creates thematic maps with World Bank data.
+about=Download and creates thematic maps with World Bank data.
 
 tracker=https://github.com/geobricks/geobricks_qgis_plugin_world_bank/issues
 repository=https://github.com/geobricks/geobricks_qgis_plugin_world_bank
