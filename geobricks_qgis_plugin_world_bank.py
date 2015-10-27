@@ -203,6 +203,9 @@ class GeobricksQgisPluginWorldBank:
         if download_path is None or len(download_path) == 0:
             QMessageBox.critical(None, self.tr('Error'), self.tr('Please insert the download folder'))
 
+        elif (int(self.dlg.cbToYear.currentText())) - int(self.dlg.cbFromYear.currentText()) < 0:
+            QMessageBox.critical(None, self.tr('Error'), self.tr('Year selection is not valid'))
+
         else:
             processed_layers = 0
             self.dlg.progressBar.setValue(processed_layers)
