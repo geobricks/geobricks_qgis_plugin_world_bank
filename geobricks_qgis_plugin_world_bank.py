@@ -235,36 +235,10 @@ class GeobricksQgisPluginWorldBank:
             # create layer by year
             for year in range(from_year, to_year):
 
-                year = str(year)
-                data_yearly = get_data_by_year(data, year)
+                # process yearly data
+                self.process_yearly_data(download_path, tmp_layer, data, year, indicator, indicator_name, layers, layers_not_available):
 
-                if len(data_yearly) == 0:
-                    layers_not_available.append(year)
-
-                else:
-
-                    # process layer
-                    layer_name = year + ' ' + indicator_name
-                    QgsMessageLog.logMessage(layer_name, self.QGSMESSAGEBAR_ID, QgsMessageLog.INFO)
-                    self.dlg.progressText.setText('Processing: ' + layer_name)
-
-                    try:
-
-                        # Create Layer
-                        layer, addedValue = create_layer(download_path, tmp_layer, indicator, indicator_name, data_yearly, year)
-
-                        # check if the layer has been changed
-                        if addedValue:
-                            layers.append(layer)
-
-                        else:
-                            # TODO: give a message to the user. something like "data are not available for this year"
-                            QgsMessageLog.logMessage("WARN: there are no data available for " + str(year), self.QGSMESSAGEBAR_ID, QgsMessageLog.WARNING)
-                            layers_not_available.append(year)
-
-                    except Exception, e:
-                        layers_not_available.append(year)
-
+                # update procgress bar
                 processed_layers += 1
                 self.dlg.progressBar.setValue(int((float(processed_layers) / float(total_years)) * 100))
 
@@ -287,6 +261,38 @@ class GeobricksQgisPluginWorldBank:
                 self.iface.messageBar().pushMessage(indicator_name, 'Data are not available for ' + ', '.join(layers_not_available) + '', level=QgsMessageBar.WARNING)
 
             #self.dlg.close()
+
+    def process_yearly_data(self, download_path, tmp_layer, data, year, indicator, indicator_name, layers, layers_not_available):
+
+        year = str(year)
+        data_yearly = get_data_by_year(data, year)
+
+        if len(data_yearly) == 0:
+            layers_not_available.append(year)
+
+        else:
+
+            # process layer
+            layer_name = year + ' ' + indicator_name
+            QgsMessageLog.logMessage(layer_name, self.QGSMESSAGEBAR_ID, QgsMessageLog.INFO)
+            self.dlg.progressText.setText('Processing: ' + layer_name)
+
+            try:
+
+                # Create Layer
+                layer, addedValue = create_layer(download_path, tmp_layer, indicator, indicator_name, data_yearly, year)
+
+                # check if the layer has been changed
+                if addedValue:
+                    layers.append(layer)
+
+                else:
+                    # TODO: give a message to the user. something like "data are not available for this year"
+                    QgsMessageLog.logMessage("WARN: there are no data available for " + str(year), self.QGSMESSAGEBAR_ID, QgsMessageLog.WARNING)
+                    layers_not_available.append(year)
+
+            except Exception, e:
+                layers_not_available.append(year)
 
     def update_indicators(self):
         self.dlg.cbIndicator.clear()
