@@ -220,7 +220,6 @@ class GeobricksQgisPluginWorldBank:
         tmp_layer = QgsVectorLayer("Polygon?crs=EPSG:4326", "tmp", "memory") 
         tmp_data_provider = tmp_layer.dataProvider()
 
-
         # add fields
         tmp_data_provider.addAttributes([QgsField("value", QVariant.Double)])
 
@@ -231,12 +230,7 @@ class GeobricksQgisPluginWorldBank:
             # QgsMessageLog('processing ' + layer_name) 
             QgsMessageLog.logMessage(layer_name, self.QGSMESSAGEBAR_ID, QgsMessageLog.INFO)
             self.dlg.progressText.setText('Processing: ' + layer_name)
-            # self.iface.messageBar().pushMessage("Processing", year + ' '+ indicator_name, level=QgsMessageBar.INFO)
 
-
-            #req = urllib2.Request('http://api.worldbank.org/countries/indicators/1.0.HCount.1.25usd?per_page=100&date=2008:2008&format=json')
-            #req = urllib2.Request('http://api.worldbank.org/countries/indicators/NY.GDP.MKTP.CD?date=2013&format=json&per_page=10000')
-            #req = urllib2.Request('http://api.worldbank.org/countries/indicators/AG.LND.ARBL.ZS?date=2012&format=json&per_page=10000')
             try:
 
                 # Create Layer                
@@ -254,8 +248,6 @@ class GeobricksQgisPluginWorldBank:
             except Exception, e:
                 # print e
                 layers_not_available.append(year)
-                # self.iface.messageBar().pushMessage("No data avaiable for", layer_name, level=QgsMessageBar.WARNING)
-
 
             # changing progress bar value  
             processed_layers = processed_layers+1
@@ -266,9 +258,14 @@ class GeobricksQgisPluginWorldBank:
 
         renderer = create_join_renderer(tmp_layer, 'value', 5,  QgsGraduatedSymbolRendererV2.Jenks)
 
-        for l in layers:
+        for index, l in enumerate(layers):
             l.setRendererV2(renderer)
             QgsMapLayerRegistry.instance().addMapLayer(l)
+            self.iface.legendInterface().setLayerVisible(l, (index == len(layers) -1))
+
+
+        self.iface.mapCanvas().refresh()
+
             # legend = self.iface.legendInterface()  # access the legend
             # legend.setLayerVisible(l, False)  # hide the layer
 
@@ -362,9 +359,6 @@ class GeobricksQgisPluginWorldBank:
 
 
         if not self.initialized:
-
-
-
             # msgBar = self.iface.messageBar()
 
             # pb = QProgressBar( msgBar )
@@ -417,54 +411,6 @@ class GeobricksQgisPluginWorldBank:
             self.update_indicator()
 
             self.dlg.cbSource.currentIndexChanged.connect(self.update_indicator)
-
-            # QtCore.QObject.connect(self.dlg.cbSource, QtCore.SIGNAL("clicked()"), self.update_indicator)
-
-            # values = []
-            # self.indicators = {}
-            # for d in data:
-            #     self.indicators[d['name']] = d['id']
-            #     values.append(d['name'])
-
-            # req = urllib2.Request('http://api.worldbank.org/indicators?per_page=500&format=json')
-            # req = urllib2.Request('http://api.worldbank.org/source/2/indicators?per_page=1500&format=json')
-            # response = urllib2.urlopen(req)
-            # json_data = response.read()
-            # data = json.loads(json_data)
-            # # TODO cache codes
-            # values = []
-            # self.indicators = {}
-            # for d in data[1]:
-            #     self.indicators[d['name']] = d['id']
-            #     values.append(d['name'])
-
-            # values.sort()
-            # self.dlg.cbIndicator.addItems(values)
-
-            
-
-            # data = [
-            # {
-            #     'name': 'GPS (current US$)',
-            #     'id': 'NY.GDP.MKTP.CD'
-            # },
-            # {
-            #     'name': 'Rural Population',
-            #     'id': 'SP.RUR.TOTL'
-            # },
-            # {
-            #     'name': 'Forest area (% of land area)',
-            #     'id': 'AG.LND.FRST.ZS'
-            # },
-            # ]
-
-            # values = []
-            # self.indicators = {}
-            # for d in data:
-            #     self.indicators[d['name']] = d['id']
-            #     values.append(d['name'])
-
-            # self.dlg.cbIndicator.addItems(values)
 
             # TODO: load the years dinamically
             values = []
