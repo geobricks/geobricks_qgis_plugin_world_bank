@@ -318,6 +318,13 @@ class GeobricksQgisPluginWorldBank:
     #         for f in files:
     #             os.remove(f)
 
+    def initialize_world_bank_topics(self):
+        with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'resources', 'world_bank_indicators.json')) as data_file:
+            self.topics = json.loads(data_file)
+            for topic in self.topics:
+                print topic
+
+
     def initialize_sources(self):
         # TODO: load sources dinamically
         data = [
@@ -379,7 +386,8 @@ class GeobricksQgisPluginWorldBank:
             #self.remove_tmp_path()
 
             # initialize selectors
-            self.initialize_sources()
+            # self.initialize_sources()
+            self.initialize_world_bank_topics()
             self.initialize_years()
 
             # call first indicator
