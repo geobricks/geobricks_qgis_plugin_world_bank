@@ -294,6 +294,22 @@ class GeobricksQgisPluginWorldBank:
             except Exception, e:
                 layers_not_available.append(year)
 
+
+    def update_indicators_by_topic(self):
+        self.dlg.cbIndicator.clear()
+        topic_name = self.dlg.cbSource.currentText()
+        indicators = self.topics[topic_name]
+
+        # cache codes
+        values = []
+        self.indicators = {}
+        for d in indicators:
+            self.indicators[d['label']] = d['code']
+            values.append(d['label'])
+
+        values.sort()
+        self.dlg.cbIndicator.addItems(values)
+
     def update_indicators(self):
         self.dlg.cbIndicator.clear()
         source_name = self.dlg.cbSource.currentText()
@@ -320,9 +336,18 @@ class GeobricksQgisPluginWorldBank:
 
     def initialize_world_bank_topics(self):
         with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'resources', 'world_bank_indicators.json')) as data_file:
-            self.topics = json.loads(data_file)
-            for topic in self.topics:
-                print topic
+
+            topics = json.load(data_file)
+
+            self.topics = {}
+            values = []
+            for topic in topics:
+                for key, indicators in topic.iteritems():
+                    self.topics[key] = indicators
+                    values.append(key)
+
+            self.dlg.cbSource.addItems(values)
+                
 
 
     def initialize_sources(self):
@@ -391,8 +416,10 @@ class GeobricksQgisPluginWorldBank:
             self.initialize_years()
 
             # call first indicator
-            self.update_indicators()
-            self.dlg.cbSource.currentIndexChanged.connect(self.update_indicators)
+            # self.update_indicators()
+            # self.dlg.cbSource.currentIndexChanged.connect(self.update_indicators)
+            self.update_indicators_by_topic()
+            self.dlg.cbSource.currentIndexChanged.connect(self.update_indicators_by_topic)
 
             # add select download folder
             self.dlg.pushButton.clicked.connect(self.select_output_file)
