@@ -29,8 +29,22 @@ def get_world_bank_data_single_year(indicator, year):
         return None
 
 
+def get_world_bank_topics():
+    req = urllib2.Request('http://api.worldbank.org/topics/?per_page=1500&format=json')
+    response = urllib2.urlopen(req)
+    json_data = response.read()
+    return json.loads(json_data)[1]
+
 def get_world_bank_indicators(source_id):
     req = urllib2.Request('http://api.worldbank.org/source/' + str(source_id) + '/indicators?per_page=1500&format=json')
     response = urllib2.urlopen(req)
     json_data = response.read()
     return json.loads(json_data)[1]
+
+def get_world_bank_indicators_by_topic(topic_id):
+    req = urllib2.Request('http://api.worldbank.org/topic/' + str(topic_id) + '/indicator?per_page=1500&format=json')
+    response = urllib2.urlopen(req)
+    json_data = response.read()
+    return json.loads(json_data)[1]
+    
+    
