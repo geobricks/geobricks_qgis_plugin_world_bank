@@ -344,8 +344,6 @@ class GeobricksQgisPluginWorldBank:
         self.topics = {}
         values = []
         for topic in topics:
-            print ".............."
-            print topic
             self.topics[topic['value']] = topic['id']
             values.append(topic['value'])
 
