@@ -23,7 +23,8 @@ def copy_layer(download_path, indicator_name):
 
 def create_layer(layer, tmp_layer, data, year, index):
 
-    index += 6
+    # TODO: remove hardcoded index
+    index += 5
 
     tmp_data_provider = tmp_layer.dataProvider()
     tmp_layer.startEditing()
