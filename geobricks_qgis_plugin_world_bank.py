@@ -257,9 +257,11 @@ class GeobricksQgisPluginWorldBank:
 
             if self.dlg.open_in_qgis.isChecked():
                 for index, year in enumerate(range(from_year, to_year)):
+                    print str(year)
                     l = QgsVectorLayer(output_file, indicator_name + ' (' + str(year) + ')', "ogr")
-                    renderer.setClassAttribute(str(year))
-                    l.setRendererV2(renderer)
+                    r = renderer.clone()
+                    r.setClassAttribute(str(year))
+                    l.setRendererV2(r)
                     QgsMapLayerRegistry.instance().addMapLayer(l)
                     self.iface.legendInterface().setLayerVisible(l, (index == (to_year - from_year-1)))
 
