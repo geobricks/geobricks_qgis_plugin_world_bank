@@ -237,8 +237,10 @@ class GeobricksQgisPluginWorldBank:
 
             layer = QgsVectorLayer(output_file, "layer_name", "ogr")
 
+
             # create layer by year
             for index, year in enumerate(range(from_year, to_year)):
+                self.dlg.progressText.setText('Processing ' + str(year))
 
                 # process yearly data
                 create_layer(layer, tmp_layer, data, year, index)
