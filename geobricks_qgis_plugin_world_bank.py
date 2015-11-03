@@ -37,7 +37,7 @@ from geobricks_qgis_plugin_world_bank_dialog import GeobricksQgisPluginWorldBank
 import os.path
 from qgis.gui import QgsMessageBar
 
-from geobricks_world_bank_connector import get_data_by_year, get_world_bank_data, get_world_bank_indicators
+from geobricks_world_bank_connector import get_world_bank_indicators_by_topic, get_world_bank_topics, get_data_by_year, get_world_bank_data, get_world_bank_indicators
 from geobricks_join_layer_utils import create_layer, create_join_renderer, create_join_label_format
 
 
@@ -294,6 +294,40 @@ class GeobricksQgisPluginWorldBank:
             except Exception, e:
                 layers_not_available.append(year)
 
+
+    def update_indicators_by_topic(self):
+        # WITH APIs
+        # self.dlg.cbIndicator.clear()
+        # topic_name = self.dlg.cbSource.currentText()
+        # topic_id = self.topics[topic_name]
+        #
+        # # get World Bank data indicators by topic ID
+        # data = get_world_bank_indicators_by_topic(topic_id)
+        #
+        # # cache codes
+        # values = []
+        # self.indicators = {}
+        # for d in data:
+        #     self.indicators[d['name']] = d['id']
+        #     values.append(d['name'])
+        #
+        # values.sort()
+        # self.dlg.cbIndicator.addItems(values)
+
+        self.dlg.cbIndicator.clear()
+        topic_name = self.dlg.cbSource.currentText()
+        data = self.topics[topic_name]
+
+        # cache codes
+        values = []
+        self.indicators = {}
+        for d in data:
+            self.indicators[d['label']] = d['code']
+            values.append(d['label'])
+
+        values.sort()
+        self.dlg.cbIndicator.addItems(values)
+
     def update_indicators(self):
         self.dlg.cbIndicator.clear()
         source_name = self.dlg.cbSource.currentText()
@@ -317,6 +351,31 @@ class GeobricksQgisPluginWorldBank:
     #         files = glob.glob(os.path.join(os.path.dirname(os.path.realpath(__file__)), "output", "*"))
     #         for f in files:
     #             os.remove(f)
+
+    def initialize_world_bank_topics(self):
+
+        # topics = get_world_bank_topics()
+        # self.topics = {}
+        # values = []
+        # for topic in topics:
+        #     self.topics[topic['value']] = topic['id']
+        #     values.append(topic['value'])
+
+        # http://api.worldbank.org/topics/
+        with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'resources', 'world_bank_indicators.json')) as data_file:
+
+           topics = json.load(data_file)
+
+           self.topics = {}
+           values = []
+           for topic in topics:
+               for key, indicators in topic.iteritems():
+                   self.topics[key] = indicators
+                   values.append(key)
+
+        self.dlg.cbSource.addItems(values)
+                
+
 
     def initialize_sources(self):
         # TODO: load sources dinamically
@@ -379,12 +438,15 @@ class GeobricksQgisPluginWorldBank:
             #self.remove_tmp_path()
 
             # initialize selectors
-            self.initialize_sources()
+            # self.initialize_sources()
+            self.initialize_world_bank_topics()
             self.initialize_years()
 
             # call first indicator
-            self.update_indicators()
-            self.dlg.cbSource.currentIndexChanged.connect(self.update_indicators)
+            # self.update_indicators()
+            # self.dlg.cbSource.currentIndexChanged.connect(self.update_indicators)
+            self.update_indicators_by_topic()
+            self.dlg.cbSource.currentIndexChanged.connect(self.update_indicators_by_topic)
 
             # add select download folder
             self.dlg.pushButton.clicked.connect(self.select_output_file)
