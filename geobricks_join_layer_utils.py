@@ -2,10 +2,62 @@ import os
 import re
 import glob
 from shutil import copyfile
-from qgis.core import QgsRendererRangeV2LabelFormat, QgsFeature, QgsStyleV2, QgsVectorLayer, QgsGraduatedSymbolRendererV2, QgsSymbolV2
+from PyQt4.QtCore import *
+from qgis.core import QgsRendererRangeV2LabelFormat, QgsField, QgsFeature, QgsStyleV2, QgsVectorLayer, QgsGraduatedSymbolRendererV2, QgsSymbolV2
 
 
-def create_layer(download_path, tmp_layer, indicator, indicator_name, data, year):
+def copy_layer(download_path, indicator_name):
+    layer_name = indicator_name
+    clean_layer_name = re.sub('\W+', '_', indicator_name)
+    output_file = os.path.join(download_path, clean_layer_name + ".shp")
+    input_base_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "resources")
+
+    # copy resource file to output
+    # resource_files = glob.glob(os.path.join(input_base_path, "ne_110m_admin_0_*"))
+    resource_files = glob.glob(os.path.join(input_base_path, "ne_110m_admin_0_*"))
+    for resource_file in resource_files:
+        base, extension = os.path.splitext(resource_file)
+        copyfile(resource_file, os.path.join(download_path, clean_layer_name + extension))
+
+    return output_file
+
+def create_layer(layer, tmp_layer, data, year, index):
+
+    index += 6
+
+    tmp_data_provider = tmp_layer.dataProvider()
+    tmp_layer.startEditing()
+    tmp_feature = QgsFeature()
+
+    # Editing output_file
+
+
+    # add column year
+    layer_data_provider = layer.dataProvider().addAttributes([QgsField(str(year), QVariant.Double)])
+
+    layer.startEditing()
+
+    # TODO: add data check instead of the addedValue boolean?
+    addedValue = False
+    for feat in layer.getFeatures():
+        if feat['iso_a2'] is not None:
+            for d in data:
+                code = d['country']['id']
+                value = d['value']
+                if code == feat['iso_a2']:
+                    if value:
+                        # TODO: automatize the index 5 of feat['iso_a2']
+                        layer.changeAttributeValue(feat.id(), index, float(value))
+                        tmp_feature.setAttributes([float(value)])
+                        # TODO add all togheter
+                        tmp_data_provider.addFeatures([tmp_feature])
+                        addedValue = True
+                        break
+
+    # layer.commitChanges()
+    return layer, addedValue
+
+def create_layer_bk(download_path, tmp_layer, indicator, indicator_name, data, year):
 
     tmp_data_provider = tmp_layer.dataProvider()
     tmp_layer.startEditing()
