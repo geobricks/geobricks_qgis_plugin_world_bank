@@ -76,9 +76,9 @@ class GeobricksQgisPluginWorldBank:
 
         # Declare instance attributes
         self.actions = []
-        self.menu = self.tr(u'&Geobricks Qgis Plugin WorldBank')
+        self.menu = self.tr(u'Download Data')
         # TODO: We are going to let the user set this up in a future iteration
-        self.toolbar = self.iface.addToolBar(u'GeobricksQgisPluginWorldBank')
+        self.toolbar = self.iface.addToolBar(u'World Bank')
         self.toolbar.setObjectName(u'GeobricksQgisPluginWorldBank')
 
         # TODO: check if there is a better way to handle inizialition
@@ -155,8 +155,8 @@ class GeobricksQgisPluginWorldBank:
         :rtype: QAction
         """
 
-        icon = QIcon(icon_path)
-        action = QAction(icon, text, parent)
+        icon = QIcon("icon.png")
+        action = QAction(icon, "World Bank Data", parent)
         action.triggered.connect(callback)
         action.setEnabled(enabled_flag)
 
@@ -230,20 +230,25 @@ class GeobricksQgisPluginWorldBank:
             # add fields
             tmp_data_provider.addAttributes([QgsField("value", QVariant.Double)])
 
-            data = get_world_bank_data(indicator, str(from_year), str(to_year))
+            data = get_world_bank_data(indicator, str(from_year), str(to_year-1))
 
             # copy layer
             output_file = copy_layer(download_path, indicator_name)
 
             layer = QgsVectorLayer(output_file, "layer_name", "ogr")
 
-
             # create layer by year
             for index, year in enumerate(range(from_year, to_year)):
                 self.dlg.progressText.setText('Processing ' + str(year))
 
-                # process yearly data
-                create_layer(layer, tmp_layer, data, year, index)
+                data_yearly = get_data_by_year(data, year)
+                print year, data_yearly
+                if len(data_yearly) > 0:
+                    added = create_layer(layer, tmp_layer, data_yearly, year, index)
+                    layers.append(str(year))
+                else:
+                    layers_not_available.append(str(year))
+
 
                 # update procgress bar
                 processed_layers += 1
@@ -256,14 +261,22 @@ class GeobricksQgisPluginWorldBank:
             renderer = create_join_renderer(tmp_layer, 'value', 5,  QgsGraduatedSymbolRendererV2.Jenks)
 
             if self.dlg.open_in_qgis.isChecked():
-                for index, year in enumerate(range(from_year, to_year)):
-                    print str(year)
+                for index, year in enumerate(reversed(layers)):
                     l = QgsVectorLayer(output_file, indicator_name + ' (' + str(year) + ')', "ogr")
                     r = renderer.clone()
                     r.setClassAttribute(str(year))
                     l.setRendererV2(r)
                     QgsMapLayerRegistry.instance().addMapLayer(l)
-                    self.iface.legendInterface().setLayerVisible(l, (index == (to_year - from_year-1)))
+                    self.iface.legendInterface().setLayerVisible(l, (index == 0))
+
+                    # for index, year in enumerate(range(from_year, to_year)):
+                    #     if str(year) not in layers_not_available:
+                    #         l = QgsVectorLayer(output_file, indicator_name + ' (' + str(year) + ')', "ogr")
+                    #         r = renderer.clone()
+                    #         r.setClassAttribute(str(year))
+                    #         l.setRendererV2(r)
+                    #         QgsMapLayerRegistry.instance().addMapLayer(l)
+                    #         self.iface.legendInterface().setLayerVisible(l, (index == (to_year - from_year-1)))
 
             self.iface.mapCanvas().refresh()
 
@@ -296,7 +309,7 @@ class GeobricksQgisPluginWorldBank:
 
                 # check if the layer has been changed
                 if addedValue:
-                    layers.append(layer)
+                    layers.append(year)
 
                 else:
                     # TODO: give a message to the user. something like "data are not available for this year"
@@ -376,7 +389,6 @@ class GeobricksQgisPluginWorldBank:
             values.append(topic['value'])
 
         self.dlg.cbSource.addItems(values)
-       
 
     def initialize_world_bank_topics(self):
 

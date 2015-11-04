@@ -32,7 +32,6 @@ def create_layer(layer, tmp_layer, data, year, index):
 
     # Editing output_file
 
-
     # add column year
     layer_data_provider = layer.dataProvider().addAttributes([QgsField(str(year), QVariant.Double)])
 
@@ -55,8 +54,9 @@ def create_layer(layer, tmp_layer, data, year, index):
                         addedValue = True
                         break
 
-    # layer.commitChanges()
-    return layer, addedValue
+    # TODO: in teory if addedValue is not present should be removed the column year?
+    layer.commitChanges()
+    return addedValue
 
 def create_layer_bk(download_path, tmp_layer, indicator, indicator_name, data, year):
 
