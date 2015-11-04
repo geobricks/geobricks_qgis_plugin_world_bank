@@ -242,7 +242,6 @@ class GeobricksQgisPluginWorldBank:
                 self.dlg.progressText.setText('Processing ' + str(year))
 
                 data_yearly = get_data_by_year(data, year)
-                print year, data_yearly
                 if len(data_yearly) > 0:
                     added = create_layer(layer, tmp_layer, data_yearly, year, index)
                     layers.append(str(year))
