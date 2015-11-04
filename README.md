@@ -1,2 +1,2 @@
-# geobricks_qgis_plugin_world_bank
+# World Bank Data plugin for QGIS
 Download and creates thematic maps with World Bank data.
