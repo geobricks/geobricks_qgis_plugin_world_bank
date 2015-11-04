@@ -6,6 +6,7 @@ import datetime
 PER_PAGE = '10000'
 
 def get_data_by_year(data, year):
+    year = str(year)
     data_yearly = []
     for d in data:
         if d['date'] == year and d['value'] is not None:
