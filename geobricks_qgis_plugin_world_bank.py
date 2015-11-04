@@ -248,7 +248,6 @@ class GeobricksQgisPluginWorldBank:
                 else:
                     layers_not_available.append(str(year))
 
-
                 # update procgress bar
                 processed_layers += 1
                 self.dlg.progressBar.setValue(int((float(processed_layers) / float(total_years)) * 100))
