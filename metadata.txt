@@ -26,7 +26,7 @@ repository=https://github.com/geobricks/geobricks_qgis_plugin_world_bank
 # changelog=
 
 # Tags are comma separated with spaces allowed
-tags=worldbank
+tags=world bank, WDI
 
 homepage=https://github.com/geobricks/geobricks_qgis_plugin_world_bank
 category=Plugins
