@@ -11,7 +11,7 @@ name=World Bank Data
 qgisMinimumVersion=2.0
 description=Download and creates thematic maps with World Bank data.
 version=0.1
-author=Geobricks: Simone Murzilli, Guido Barbaglia, Stefano Cudini
+author=Geobricks.org
 email=simone.murzilli@geobricks.com, guido.barbaglia@geobricks.com, stefano.cudini@geobricks.com
 
 about=Download and creates thematic maps with World Bank data.
