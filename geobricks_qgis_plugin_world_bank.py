@@ -156,7 +156,7 @@ class GeobricksQgisPluginWorldBank:
         """
 
         icon = QIcon("icon.png")
-        action = QAction(icon, "World Bank Data", parent)
+        action = QAction(icon, "World Bank Data Downloader", parent)
         action.triggered.connect(callback)
         action.setEnabled(enabled_flag)
 
