@@ -12,8 +12,7 @@ qgisMinimumVersion=2.0
 description=Download and creates thematic maps with World Bank data.
 version=0.1
 author=Geobricks.org
-email=simone.murzilli@geobricks.com, guido.barbaglia@geobricks.com, stefano.cudini@geobricks.com
-
+email=devs@geobricks.org; simone.murzilli@geobricks.com; guido.barbaglia@geobricks.com; stefano.cudini@geobricks.com
 about=Download and creates thematic maps with World Bank data.
 
 tracker=https://github.com/geobricks/geobricks_qgis_plugin_world_bank/issues
